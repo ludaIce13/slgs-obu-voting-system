@@ -27,15 +27,15 @@ def create_app():
         # Check if we're in production environment
         is_production = os.environ.get('RENDER') or os.environ.get('PRODUCTION')
         if is_production:
-            # In production without DATABASE_URL, this is an error
-            print("ERROR: Production environment detected but no DATABASE_URL found!")
-            print("Available environment variables:")
-            for key, value in os.environ.items():
-                if 'DATABASE' in key or 'DB' in key:
-                    print(f"  {key}: {value[:50]}...")
-            # Fallback to PostgreSQL with default Render database
-            app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg://postgres:password@localhost:5432/voting_db'
-            print("Using fallback PostgreSQL configuration")
+            # In production without DATABASE_URL, connecting to localhost Postgres
+            # will fail on Render (no local Postgres). Fall back to SQLite so the
+            # site can still run, but instruct the admin to provision a proper
+            # managed Postgres database and set DATABASE_URL in the service env.
+            print("WARNING: Production environment detected but no DATABASE_URL found.")
+            print("Falling back to SQLite (instance/voting.db). This is not suitable for a multi-instance production setup.")
+            print("Please provision a managed PostgreSQL database on Render and add the DATABASE_URL environment variable to your service.")
+            # Fallback to SQLite (allows the app to run but not recommended for production)
+            app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/voting.db'
         else:
             # Fallback to SQLite for local development
             app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/voting.db'
