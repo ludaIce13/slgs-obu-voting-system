@@ -194,6 +194,18 @@ def favicon():
     """Handle favicon requests"""
     return '', 204
 
+
+@main.route('/_health')
+def health():
+    """Simple health check endpoint that verifies DB connectivity."""
+    try:
+        # Simple lightweight DB check
+        db.session.execute('SELECT 1')
+        return jsonify({'status': 'ok'}), 200
+    except Exception as e:
+        # Return error details for debugging (do not expose in production)
+        return jsonify({'status': 'error', 'detail': str(e)}), 500
+
 @admin.route('/upload-voters', methods=['POST'])
 def upload_voters():
     if not request.headers.get('Authorization') == 'Bearer ' + os.environ.get('ADMIN_TOKEN', 'admin-token'):

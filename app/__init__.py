@@ -50,4 +50,23 @@ def create_app():
     # Initialize extensions
     db.init_app(app)
 
+    # If using SQLite fallback, ensure the instance folder exists and
+    # create the database tables so the app doesn't error on first request.
+    try:
+        if app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite:'):
+            # Ensure instance folder exists
+            try:
+                os.makedirs(app.instance_path, exist_ok=True)
+            except Exception:
+                # instance_path may already exist or permissions may vary
+                pass
+
+            # Create tables if they don't exist
+            with app.app_context():
+                db.create_all()
+                print('SQLite database initialized (instance folder and tables created).')
+    except Exception as e:
+        # Print but don't crash the app; the health endpoint will surface DB errors
+        print(f'Warning: failed to initialize SQLite DB automatically: {e}')
+
     return app
