@@ -26,6 +26,19 @@ def create_app():
     else:
         # Check if we're in production environment
         is_production = os.environ.get('RENDER') or os.environ.get('PRODUCTION')
+
+        # Ensure instance folder exists before building SQLite path
+        try:
+            os.makedirs(app.instance_path, exist_ok=True)
+        except Exception:
+            # If instance_path cannot be created, we'll try to continue and
+            # surface the error when attempting to create the DB file.
+            pass
+
+        # Build absolute SQLite path inside instance folder
+        sqlite_db_path = os.path.join(app.instance_path, 'voting.db')
+        sqlite_uri = f"sqlite:///{sqlite_db_path}"
+
         if is_production:
             # In production without DATABASE_URL, connecting to localhost Postgres
             # will fail on Render (no local Postgres). Fall back to SQLite so the
@@ -35,10 +48,10 @@ def create_app():
             print("Falling back to SQLite (instance/voting.db). This is not suitable for a multi-instance production setup.")
             print("Please provision a managed PostgreSQL database on Render and add the DATABASE_URL environment variable to your service.")
             # Fallback to SQLite (allows the app to run but not recommended for production)
-            app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/voting.db'
+            app.config['SQLALCHEMY_DATABASE_URI'] = sqlite_uri
         else:
             # Fallback to SQLite for local development
-            app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/voting.db'
+            app.config['SQLALCHEMY_DATABASE_URI'] = sqlite_uri
             print("Using SQLite database (development mode)")
 
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
