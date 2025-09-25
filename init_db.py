@@ -10,6 +10,9 @@ def init_database():
     """Initialize database and populate sample data"""
     try:
         print("Initializing database...")
+        print(f"Current working directory: {os.getcwd()}")
+        print(f"Environment: RENDER={os.environ.get('RENDER')}, PRODUCTION={os.environ.get('PRODUCTION')}")
+        print(f"DATABASE_URL: {os.environ.get('DATABASE_URL', 'Not set')[:50]}...")
 
         # Import after potential path setup
         from app import create_app, db
@@ -18,6 +21,14 @@ def init_database():
         app = create_app()
 
         with app.app_context():
+            # Test database connection
+            try:
+                db.engine.connect()
+                print("Database connection successful")
+            except Exception as e:
+                print(f"Database connection failed: {e}")
+                return False
+
             # Create all tables
             db.create_all()
             print("Database tables created successfully")

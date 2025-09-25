@@ -16,12 +16,28 @@ def create_app():
     database_url = os.environ.get('DATABASE_URL')
     if database_url:
         # Render provides PostgreSQL via DATABASE_URL
+        # Convert postgres:// to postgresql:// for SQLAlchemy compatibility
+        if database_url.startswith('postgres://'):
+            database_url = database_url.replace('postgres://', 'postgresql://', 1)
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
         print(f"Using PostgreSQL database: {database_url[:50]}...")
     else:
-        # Fallback to SQLite for local development
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/voting.db'
-        print("Using SQLite database (development mode)")
+        # Check if we're in production environment
+        is_production = os.environ.get('RENDER') or os.environ.get('PRODUCTION')
+        if is_production:
+            # In production without DATABASE_URL, this is an error
+            print("ERROR: Production environment detected but no DATABASE_URL found!")
+            print("Available environment variables:")
+            for key, value in os.environ.items():
+                if 'DATABASE' in key or 'DB' in key:
+                    print(f"  {key}: {value[:50]}...")
+            # Fallback to PostgreSQL with default Render database
+            app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5432/voting_db'
+            print("Using fallback PostgreSQL configuration")
+        else:
+            # Fallback to SQLite for local development
+            app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/voting.db'
+            print("Using SQLite database (development mode)")
 
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
