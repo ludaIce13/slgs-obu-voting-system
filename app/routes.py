@@ -97,8 +97,16 @@ def vote():
         flash('Your votes have been recorded successfully!', 'success')
         return redirect(url_for('main.thank_you'))
 
-    positions = Position.query.all()
-    return render_template('vote.html', positions=positions)
+    try:
+        positions = Position.query.all()
+        print(f"Vote page loaded - Found {len(positions)} positions")
+        return render_template('vote.html', positions=positions)
+    except Exception as e:
+        print(f"Error loading vote page: {e}")
+        import traceback
+        traceback.print_exc()
+        # Return a simple error page instead of crashing
+        return f"<h1>Error loading voting page</h1><p>Please contact the administrator. Error: {str(e)}</p>", 500
 
 @main.route('/thank-you')
 def thank_you():
