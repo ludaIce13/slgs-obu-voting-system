@@ -78,6 +78,48 @@ def create_app():
             with app.app_context():
                 db.create_all()
                 print('SQLite database initialized (instance folder and tables created).')
+
+                # Seed sample positions and candidates if none exist
+                try:
+                    from app.models import Position, Candidate
+
+                    if Position.query.count() == 0:
+                        print('Seeding sample positions and candidates...')
+
+                        positions_data = [
+                            'President', 'Vice President', 'Secretary', 'Assistant Secretary',
+                            'Treasurer', 'Assistant Treasurer', 'Social & Organizing Secretary',
+                            'Assistant Social Secretary & Organizing Secretary', 'Publicity Secretary',
+                            'Chairman Improvement Committee', 'Diaspora Coordinator', 'Chief Whip'
+                        ]
+
+                        for name in positions_data:
+                            pos = Position(name=name, description=f'{name} of SLGS Old Boys Union')
+                            db.session.add(pos)
+
+                        db.session.commit()
+
+                        # Simple candidate seeding: distribute ~25 names across positions
+                        candidate_names = [
+                            'John Smith', 'Mary Johnson', 'David Williams', 'Sarah Brown', 'Michael Davis',
+                            'Emily Wilson', 'Robert Taylor', 'Lisa Garcia', 'Kevin Rodriguez', 'Jennifer Anderson',
+                            'James Martinez', 'Michelle Lee', 'Thomas Walker', 'Amanda Hall', 'Christopher Allen',
+                            'Ashley Young', 'Matthew King', 'Jessica Wright', 'Andrew Lopez', 'Stephanie Hill',
+                            'Daniel Green', 'Rachel Adams', 'Brian Nelson', 'Nicole Baker', 'Mark Carter'
+                        ]
+
+                        positions = Position.query.all()
+                        pos_count = len(positions)
+
+                        for i, cname in enumerate(candidate_names):
+                            pos = positions[i % pos_count]
+                            cand = Candidate(name=cname, bio='Sample candidate', position_id=pos.id)
+                            db.session.add(cand)
+
+                        db.session.commit()
+                        print('Sample data seeded: positions and candidates created.')
+                except Exception as e:
+                    print(f'Warning: failed to seed sample data: {e}')
     except Exception as e:
         # Print but don't crash the app; the health endpoint will surface DB errors
         print(f'Warning: failed to initialize SQLite DB automatically: {e}')
