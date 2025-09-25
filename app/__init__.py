@@ -16,9 +16,11 @@ def create_app():
     database_url = os.environ.get('DATABASE_URL')
     if database_url:
         # Render provides PostgreSQL via DATABASE_URL
-        # Convert postgres:// to postgresql:// for SQLAlchemy compatibility
+        # Convert postgres:// to postgresql+psycopg:// for SQLAlchemy with psycopg3
         if database_url.startswith('postgres://'):
-            database_url = database_url.replace('postgres://', 'postgresql://', 1)
+            database_url = database_url.replace('postgres://', 'postgresql+psycopg://', 1)
+        elif database_url.startswith('postgresql://'):
+            database_url = database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
         print(f"Using PostgreSQL database: {database_url[:50]}...")
     else:
@@ -32,7 +34,7 @@ def create_app():
                 if 'DATABASE' in key or 'DB' in key:
                     print(f"  {key}: {value[:50]}...")
             # Fallback to PostgreSQL with default Render database
-            app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:password@localhost:5432/voting_db'
+            app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql+psycopg://postgres:password@localhost:5432/voting_db'
             print("Using fallback PostgreSQL configuration")
         else:
             # Fallback to SQLite for local development
