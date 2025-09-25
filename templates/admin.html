@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-header">
+    <div class="container">
+        <div class="row">
+            <div class="col">
+                <h2 class="mb-0">Election Administration Dashboard</h2>
+                <p class="mb-0">SLGS OBU Presidential Election</p>
+                <small class="text-warning">
+                    🔐 Admin Token: <span id="tokenStatus">Checking...</span>
+                    {% if auth_ok %}
+                        <span class="badge bg-success">✓ Authorized</span>
+                    {% else %}
+                        <span class="badge bg-danger">✗ Unauthorized</span>
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Total Voters</h5>
+                    <h2 class="text-primary">{{ total_voters }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Votes Cast</h5>
+                    <h2 class="text-success">{{ voted_count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Turnout</h5>
+                    <h2 class="text-info">{{ "%.1f"|format((voted_count/total_voters)*100) if total_voters > 0 else 0 }}%</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Vote Counts by Position</h5>
+                </div>
+                <div class="card-body">
+                    {% for position in positions %}
+                    <h6 class="mt-4 mb-3">{{ position.name }}</h6>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Candidate</th>
+                                    <th>Votes</th>
+                                    <th>Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for candidate in position.candidates %}
+                                <tr>
+                                    <td>{{ candidate.name }}</td>
+                                    <td>{{ position_results[position.name][candidate.name] if position_results[position.name] else 0 }}</td>
+                                    <td>{{ "%.1f"|format((position_results[position.name][candidate.name]/total_voters)*100) if total_voters > 0 and position_results[position.name] else 0 }}%</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Administration Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <button class="btn btn-primary w-100" onclick="generateVoterIds()">
+                                Generate Voter IDs
+                            </button>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <button class="btn btn-success w-100" onclick="exportResults()">
+                                Export Results
+                            </button>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <button class="btn btn-warning w-100" onclick="refreshData()">
+                                Refresh Data
+                            </button>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <button class="btn btn-info w-100" onclick="resetToken()">
+                                Reset Admin Token
+                            </button>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <button class="btn btn-danger w-100" onclick="clearAllVoters()">
+                                Clear All Voters
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Upload Voter List</h5>
+                </div>
+                <div class="card-body">
+                    <form id="uploadForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="voterFile" class="form-label">Select CSV file with voter data:</label>
+                            <input class="form-control" type="file" id="voterFile" name="file" accept=".csv">
+                            <div class="form-text">
+                                CSV format: MemberID, FullName, GraduationYear
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Upload Voters</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Registered Voters</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Member ID</th>
+                                    <th>Full Name</th>
+                                    <th>Voter ID</th>
+                                    <th>Graduation Year</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for voter in voters %}
+                                <tr>
+                                    <td>{{ voter.member_id }}</td>
+                                    <td>{{ voter.full_name }}</td>
+                                    <td><code>{{ voter.voter_id }}</code></td>
+                                    <td>{{ voter.graduation_year }}</td>
+                                    <td>
+                                        {% if voter.has_voted %}
+                                            <span class="badge bg-success">Voted</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Not Voted</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% if not voters %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">
+                                        No voters registered yet. Upload a voter list above.
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Upload form handler
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        const response = await fetch('/admin/upload-voters', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+            },
+            body: formData
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            alert('Voters uploaded successfully!');
+            location.reload();
+        } else {
+            alert('Error: ' + result.error);
+        }
+    });
+});
+
+async function generateVoterIds() {
+    if (!confirm('This will generate Voter IDs for all voters without IDs. Continue?')) {
+        return;
+    }
+
+    const response = await fetch('/admin/generate-ids', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+        }
+    });
+
+    const result = await response.json();
+    if (response.ok) {
+        alert(result.message);
+        location.reload();
+    } else {
+        alert('Error: ' + result.error);
+    }
+}
+
+async function exportResults() {
+    const response = await fetch('/admin/export-results', {
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+        }
+    });
+
+    if (response.ok) {
+        const results = await response.json();
+        console.log('Election Results:', results);
+        alert('Results exported to console. In production, this would download a file.');
+    } else {
+        alert('Error exporting results');
+    }
+}
+
+function refreshData() {
+    location.reload();
+}
+
+function resetToken() {
+    if (confirm('Reset admin token? You will need to enter it again.')) {
+        localStorage.removeItem('adminToken');
+        location.reload();
+    }
+}
+
+async function clearAllVoters() {
+    if (confirm('Clear ALL voters from the database? This cannot be undone!')) {
+        const response = await fetch('/admin/clear-voters', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+            }
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            alert(result.message);
+            location.reload();
+        } else {
+            alert('Error: ' + result.error);
+        }
+    }
+}
+
+// Store admin token (in production, use proper authentication)
+if (!localStorage.getItem('adminToken')) {
+    const token = prompt('Enter admin token:\n\nDefault token: admin-token\n\nThis is required to access admin functions.');
+    if (token) {
+        localStorage.setItem('adminToken', token);
+        // Set cookie for immediate dashboard access
+        document.cookie = `admin_token=${token}; path=/; max-age=86400`;
+    } else {
+        // Set default token if user cancels
+        localStorage.setItem('adminToken', 'admin-token');
+        document.cookie = 'admin_token=admin-token; path=/; max-age=86400';
+        alert('Using default admin token: admin-token');
+    }
+    // Reload to show data with cookie
+    location.reload();
+}
+
+// Add direct access link for testing
+if (window.location.search.includes('debug=true')) {
+    console.log('Debug mode: Adding direct access link');
+    const debugDiv = document.createElement('div');
+    debugDiv.className = 'alert alert-info mt-3';
+    debugDiv.innerHTML = `
+        <strong>Debug Mode:</strong> <a href="/admin?token=admin-token" class="btn btn-sm btn-primary">Direct Admin Access</a>
+        <a href="/admin?token=admin-token&debug=true" class="btn btn-sm btn-secondary">Debug View</a>
+    `;
+    document.querySelector('.container').insertBefore(debugDiv, document.querySelector('.container').firstChild);
+}
+
+// Update token status display
+function updateTokenStatus() {
+    const token = localStorage.getItem('adminToken');
+    const statusElement = document.getElementById('tokenStatus');
+    if (statusElement) {
+        if (token) {
+            statusElement.textContent = token.substring(0, 10) + '...';
+            statusElement.className = 'text-success';
+        } else {
+            statusElement.textContent = 'Not set';
+            statusElement.className = 'text-danger';
+        }
+    }
+}
+
+// Update token status on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateTokenStatus();
+});
+</script>
+{% endblock %}
