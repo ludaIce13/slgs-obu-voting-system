@@ -19,7 +19,19 @@ MAX_ATTEMPTS_PER_WINDOW = 10
 
 @main.route('/')
 def index():
-    return render_template('index.html')
+    # Provide current voting status to the public home page
+    try:
+        voting_open = False
+        voting_setting = Setting.query.filter_by(key='voting_open').first()
+        voting_until_setting = Setting.query.filter_by(key='voting_until').first()
+        if voting_setting and voting_setting.value == 'true':
+            voting_open = True
+        voting_until = voting_until_setting.value if voting_until_setting else None
+    except Exception:
+        voting_open = False
+        voting_until = None
+
+    return render_template('index.html', voting_open=voting_open, voting_until=voting_until)
 
 @main.route('/vote', methods=['GET', 'POST'])
 def vote():

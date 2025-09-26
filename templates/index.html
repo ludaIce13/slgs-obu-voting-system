@@ -21,11 +21,53 @@
                 <strong>Important:</strong> Your Voter ID is unique and can only be used once. Keep it secure and use it to cast your votes.
             </div>
 
-            <div class="mt-4">
-                <a href="/vote" class="btn btn-success btn-lg">Start Voting</a>
+            <div class="mt-4 text-center">
+                <div id="votingStatusWrapper" class="mb-3">
+                    <span id="votingStatusBadge" class="badge bg-secondary">Checking...</span>
+                    <small id="votingUntilText" class="ms-2 text-muted"></small>
+                </div>
+
+                <a href="/vote" id="startVotingBtn" class="btn btn-success btn-lg">Start Voting</a>
                 <p class="mb-3 mt-3">Questions? Contact the election committee for assistance.</p>
             </div>
         </div>
     </div>
 </div>
+<script>
+// Update voting button and badge based on /admin/voting-status
+async function updateVotingStatus() {
+    try {
+        const res = await fetch('/admin/voting-status');
+        if (!res.ok) return;
+        const data = await res.json();
+        const badge = document.getElementById('votingStatusBadge');
+        const untilText = document.getElementById('votingUntilText');
+        const startBtn = document.getElementById('startVotingBtn');
+        if (data.voting_open) {
+            badge.textContent = 'Voting OPEN';
+            badge.className = 'badge bg-success';
+            startBtn.classList.remove('disabled');
+            startBtn.href = '/vote';
+        } else {
+            badge.textContent = 'Voting CLOSED';
+            badge.className = 'badge bg-danger';
+            // disable the link when closed
+            startBtn.classList.add('disabled');
+            startBtn.removeAttribute('href');
+        }
+        if (data.voting_until) {
+            untilText.textContent = 'Until: ' + new Date(data.voting_until).toLocaleString();
+        } else {
+            untilText.textContent = '';
+        }
+    } catch (e) {
+        // ignore
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateVotingStatus();
+    setInterval(updateVotingStatus, 60 * 1000);
+});
+</script>
 {% endblock %}
