@@ -205,6 +205,81 @@
     </div>
 </div>
 
+    <!-- Candidate Management -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex align-items-center">
+                    <h5 class="mb-0">Manage Candidates</h5>
+                    <div class="ms-auto">
+                        <button id="addCandidateBtn" class="btn btn-sm btn-primary">Add Candidate</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover" id="candidatesTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Position</th>
+                                    <th>Bio</th>
+                                    <th>Photo URL</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Candidate Modal -->
+    <div class="modal" tabindex="-1" id="candidateModal">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="candidateModalTitle">Add Candidate</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="candidateForm">
+                <input type="hidden" id="candidateId" />
+                <div class="mb-3">
+                    <label class="form-label">Name</label>
+                    <input id="candidateName" class="form-control" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Position</label>
+                    <select id="candidatePosition" class="form-select" required>
+                        <option value="">Select position</option>
+                        {% for pos in positions %}
+                        <option value="{{ pos.id }}">{{ pos.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Bio</label>
+                    <textarea id="candidateBio" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Photo URL</label>
+                    <input id="candidatePhoto" class="form-control" />
+                </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="saveCandidateBtn">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Upload form handler
@@ -415,6 +490,126 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initial fetch and polling every 60s
     fetchVotingStatus();
     setInterval(fetchVotingStatus, 60 * 1000);
+    
+    // Candidate management init
+    initCandidateManagement();
 });
+
+// Candidate management JS
+function _authHeaders() {
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+    };
+}
+
+async function initCandidateManagement() {
+    document.getElementById('addCandidateBtn').addEventListener('click', () => openCandidateModal());
+    document.getElementById('saveCandidateBtn').addEventListener('click', saveCandidate);
+    // Load candidates
+    await loadCandidates();
+}
+
+async function loadCandidates() {
+    const res = await fetch('/admin/candidates', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('adminToken') } });
+    if (!res.ok) return;
+    const list = await res.json();
+    const tbody = document.querySelector('#candidatesTable tbody');
+    tbody.innerHTML = '';
+    for (const c of list) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${c.id}</td>
+            <td>${c.name}</td>
+            <td>${c.position_id}</td>
+            <td>${c.bio || ''}</td>
+            <td>${c.photo_url || ''}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary me-1" onclick="editCandidate(${c.id})">Edit</button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteCandidate(${c.id})">Delete</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    }
+}
+
+function _showModal() {
+    const modalEl = document.getElementById('candidateModal');
+    // Bootstrap 5 modal
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+}
+
+function openCandidateModal(candidate) {
+    document.getElementById('candidateForm').reset();
+    document.getElementById('candidateId').value = '';
+    document.getElementById('candidateModalTitle').textContent = 'Add Candidate';
+    if (candidate) {
+        document.getElementById('candidateId').value = candidate.id;
+        document.getElementById('candidateName').value = candidate.name;
+        document.getElementById('candidateBio').value = candidate.bio || '';
+        document.getElementById('candidatePhoto').value = candidate.photo_url || '';
+        document.getElementById('candidatePosition').value = candidate.position_id;
+        document.getElementById('candidateModalTitle').textContent = 'Edit Candidate';
+    }
+    _showModal();
+}
+
+async function editCandidate(id) {
+    const res = await fetch('/admin/candidates', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('adminToken') } });
+    if (!res.ok) return;
+    const list = await res.json();
+    const cand = list.find(x => x.id === id);
+    if (cand) openCandidateModal(cand);
+}
+
+async function saveCandidate() {
+    const id = document.getElementById('candidateId').value;
+    const payload = {
+        name: document.getElementById('candidateName').value,
+        bio: document.getElementById('candidateBio').value,
+        photo_url: document.getElementById('candidatePhoto').value,
+        position_id: parseInt(document.getElementById('candidatePosition').value)
+    };
+    let res;
+    if (id) {
+        res = await fetch('/admin/candidates/' + id, {
+            method: 'PUT',
+            headers: _authHeaders(),
+            body: JSON.stringify(payload)
+        });
+    } else {
+        res = await fetch('/admin/candidates', {
+            method: 'POST',
+            headers: _authHeaders(),
+            body: JSON.stringify(payload)
+        });
+    }
+    if (res.ok) {
+        alert('Saved');
+        // Hide modal
+        const modalEl = document.getElementById('candidateModal');
+        bootstrap.Modal.getInstance(modalEl).hide();
+        await loadCandidates();
+    } else {
+        const err = await res.json();
+        alert('Error: ' + (err.error || 'Save failed'));
+    }
+}
+
+async function deleteCandidate(id) {
+    if (!confirm('Delete candidate #' + id + '?')) return;
+    const res = await fetch('/admin/candidates/' + id, {
+        method: 'DELETE',
+        headers: _authHeaders()
+    });
+    if (res.ok) {
+        alert('Deleted');
+        await loadCandidates();
+    } else {
+        const err = await res.json();
+        alert('Error: ' + (err.error || 'Delete failed'));
+    }
+}
 </script>
 {% endblock %}

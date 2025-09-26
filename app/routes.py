@@ -37,6 +37,32 @@ def index():
 def vote():
     client_ip = request.remote_addr
 
+    # Update voting state if until timestamp passed
+    try:
+        def _update_voting_state_if_needed():
+            vs = Setting.query.filter_by(key='voting_open').first()
+            vu = Setting.query.filter_by(key='voting_until').first()
+            if vu:
+                import datetime
+                try:
+                    until_dt = datetime.datetime.fromisoformat(vu.value)
+                except Exception:
+                    # If parsing fails, don't auto-close
+                    return
+                if datetime.datetime.utcnow() > until_dt:
+                    # Time passed, close voting
+                    if vs:
+                        vs.value = 'false'
+                    try:
+                        db.session.delete(vu)
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+
+        _update_voting_state_if_needed()
+    except Exception:
+        pass
+
     # Check voting status setting
     try:
         voting_open = False
@@ -220,6 +246,22 @@ def admin_debug():
 def voting_status():
     """Return current voting status and countdown if set."""
     try:
+        # Auto-close if voting_until passed
+        vu = Setting.query.filter_by(key='voting_until').first()
+        if vu:
+            import datetime
+            try:
+                until_dt = datetime.datetime.fromisoformat(vu.value)
+                if datetime.datetime.utcnow() > until_dt:
+                    vs = Setting.query.filter_by(key='voting_open').first()
+                    if vs:
+                        vs.value = 'false'
+                        db.session.commit()
+                    db.session.delete(vu)
+                    db.session.commit()
+            except Exception:
+                pass
+
         vs = Setting.query.filter_by(key='voting_open').first()
         until = Setting.query.filter_by(key='voting_until').first()
         return jsonify({
@@ -412,6 +454,82 @@ def clear_voters():
         db.session.query(Voter).delete()
         db.session.commit()
         return jsonify({'message': f'All {voters_cleared} voters cleared successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+# Candidate management endpoints (admin-only)
+def _is_admin_req(req):
+    return req.headers.get('Authorization') == 'Bearer ' + os.environ.get('ADMIN_TOKEN', 'admin-token')
+
+
+@admin.route('/candidates', methods=['GET'])
+def list_candidates():
+    if not _is_admin_req(request):
+        return jsonify({'error': 'Unauthorized'}), 401
+    candidates = Candidate.query.all()
+    return jsonify([{
+        'id': c.id,
+        'name': c.name,
+        'bio': c.bio,
+        'photo_url': c.photo_url,
+        'position_id': c.position_id
+    } for c in candidates])
+
+
+@admin.route('/candidates', methods=['POST'])
+def create_candidate():
+    if not _is_admin_req(request):
+        return jsonify({'error': 'Unauthorized'}), 401
+    data = request.get_json() or {}
+    name = data.get('name')
+    bio = data.get('bio')
+    photo_url = data.get('photo_url')
+    position_id = data.get('position_id')
+    if not name or not position_id:
+        return jsonify({'error': 'name and position_id required'}), 400
+    try:
+        cand = Candidate(name=name, bio=bio, photo_url=photo_url, position_id=position_id)
+        db.session.add(cand)
+        db.session.commit()
+        return jsonify({'message': 'Candidate created', 'id': cand.id}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@admin.route('/candidates/<int:candidate_id>', methods=['PUT'])
+def update_candidate(candidate_id):
+    if not _is_admin_req(request):
+        return jsonify({'error': 'Unauthorized'}), 401
+    data = request.get_json() or {}
+    try:
+        cand = Candidate.query.get(candidate_id)
+        if not cand:
+            return jsonify({'error': 'Not found'}), 404
+        cand.name = data.get('name', cand.name)
+        cand.bio = data.get('bio', cand.bio)
+        cand.photo_url = data.get('photo_url', cand.photo_url)
+        cand.position_id = data.get('position_id', cand.position_id)
+        db.session.commit()
+        return jsonify({'message': 'Candidate updated'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@admin.route('/candidates/<int:candidate_id>', methods=['DELETE'])
+def delete_candidate(candidate_id):
+    if not _is_admin_req(request):
+        return jsonify({'error': 'Unauthorized'}), 401
+    try:
+        cand = Candidate.query.get(candidate_id)
+        if not cand:
+            return jsonify({'error': 'Not found'}), 404
+        db.session.delete(cand)
+        db.session.commit()
+        return jsonify({'message': 'Candidate deleted'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500

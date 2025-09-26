@@ -12,6 +12,12 @@
     </div>
 
     <form method="POST" id="votingForm">
+        {% if error %}
+        <div class="alert alert-danger text-center">
+            <h4>{{ error }}</h4>
+            <p>Please check back later or contact the election administrators.</p>
+        </div>
+        {% else %}
         <!-- Voter ID Input -->
         <div class="row justify-content-center mb-4">
             <div class="col-md-6">
@@ -76,7 +82,8 @@
                 Submit All Votes
             </button>
         </div>
-    </form>
+        </form>
+        {% endif %}
 </div>
 
 <script>
