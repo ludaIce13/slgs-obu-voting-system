@@ -205,33 +205,48 @@
     </div>
 </div>
 
-    <!-- Candidate Management -->
+    <!-- Candidate Management: grouped by position -->
     <div class="row mt-4">
         <div class="col-md-12">
             <div class="card">
                 <div class="card-header d-flex align-items-center">
                     <h5 class="mb-0">Manage Candidates</h5>
-                    <div class="ms-auto">
-                        <button id="addCandidateBtn" class="btn btn-sm btn-primary">Add Candidate</button>
-                    </div>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover" id="candidatesTable">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Name</th>
-                                    <th>Position</th>
-                                    <th>Bio</th>
-                                    <th>Photo URL</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Populated by JS -->
-                            </tbody>
-                        </table>
+                    <div class="accordion" id="positionsAccordion">
+                        {% for pos in positions %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="heading{{ pos.id }}">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ pos.id }}" aria-expanded="false" aria-controls="collapse{{ pos.id }}">
+                                    {{ pos.name }}
+                                </button>
+                            </h2>
+                            <div id="collapse{{ pos.id }}" class="accordion-collapse collapse" aria-labelledby="heading{{ pos.id }}" data-bs-parent="#positionsAccordion">
+                                <div class="accordion-body">
+                                    <div class="d-flex mb-2">
+                                        <button class="btn btn-sm btn-primary me-2" onclick="openCandidateModalForPosition({{ pos.id }})">Add Candidate to {{ pos.name }}</button>
+                                        <button class="btn btn-sm btn-outline-secondary" onclick="loadCandidates({{ pos.id }})">Refresh</button>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover" id="candidatesTablePos{{ pos.id }}">
+                                            <thead>
+                                                <tr>
+                                                    <th>ID</th>
+                                                    <th>Name</th>
+                                                    <th>Bio</th>
+                                                    <th>Photo URL</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <!-- Populated by JS -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
@@ -421,6 +436,8 @@ document.addEventListener('DOMContentLoaded', function() {
     updateTokenStatus();
 });
 
+let POSITIONS = [];
+
 // Voting control and polling
 async function fetchVotingStatus() {
     try {
@@ -504,32 +521,46 @@ function _authHeaders() {
 }
 
 async function initCandidateManagement() {
-    document.getElementById('addCandidateBtn').addEventListener('click', () => openCandidateModal());
     document.getElementById('saveCandidateBtn').addEventListener('click', saveCandidate);
-    // Load candidates
+    // Fetch positions (admin-only endpoint) then load candidates
+    const posRes = await fetch('/admin/positions', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('adminToken') } });
+    if (posRes.ok) {
+        POSITIONS = await posRes.json();
+    } else {
+        // Fallback to positions rendered server-side (if available in DOM)
+        POSITIONS = [];
+    }
+    // Load candidates for all positions
     await loadCandidates();
 }
 
-async function loadCandidates() {
+async function loadCandidates(posId) {
+    // If posId provided, only refresh that position table; otherwise refresh all
     const res = await fetch('/admin/candidates', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('adminToken') } });
     if (!res.ok) return;
     const list = await res.json();
-    const tbody = document.querySelector('#candidatesTable tbody');
-    tbody.innerHTML = '';
-    for (const c of list) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${c.id}</td>
-            <td>${c.name}</td>
-            <td>${c.position_id}</td>
-            <td>${c.bio || ''}</td>
-            <td>${c.photo_url || ''}</td>
-            <td>
-                <button class="btn btn-sm btn-outline-primary me-1" onclick="editCandidate(${c.id})">Edit</button>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteCandidate(${c.id})">Delete</button>
-            </td>
-        `;
-        tbody.appendChild(tr);
+
+    const positionsToUpdate = posId ? [POSITIONS.find(p => p.id === posId)] : POSITIONS;
+
+    for (const pos of positionsToUpdate) {
+        const tbody = document.querySelector(`#candidatesTablePos${pos.id} tbody`);
+        if (!tbody) continue;
+        tbody.innerHTML = '';
+        const candidatesForPos = list.filter(c => c.position_id === pos.id);
+        for (const c of candidatesForPos) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${c.id}</td>
+                <td>${c.name}</td>
+                <td>${c.bio || ''}</td>
+                <td>${c.photo_url || ''}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editCandidate(${c.id})">Edit</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteCandidate(${c.id})">Delete</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        }
     }
 }
 
@@ -553,6 +584,19 @@ function openCandidateModal(candidate) {
         document.getElementById('candidateModalTitle').textContent = 'Edit Candidate';
     }
     _showModal();
+}
+
+function openCandidateModalForPosition(posId, posName) {
+    // Open modal pre-selecting the position
+    openCandidateModal(null);
+    document.getElementById('candidatePosition').value = posId;
+    // Lookup position name if not provided
+    let name = posName;
+    if (!name) {
+        const p = POSITIONS.find(x => x.id === posId);
+        name = p ? p.name : '';
+    }
+    document.getElementById('candidateModalTitle').textContent = `Add Candidate to ${name}`;
 }
 
 async function editCandidate(id) {
