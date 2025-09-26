@@ -52,3 +52,12 @@ class Vote(db.Model):
     ip_address = db.Column(db.String(45))  # IPv6 compatible
     user_agent = db.Column(db.String(255))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Setting(db.Model):
+    """Simple key/value store for runtime settings like voting state."""
+    key = db.Column(db.String(64), primary_key=True)
+    value = db.Column(db.String(255))
+
+    def __repr__(self):
+        return f"<Setting {self.key}={self.value}>"

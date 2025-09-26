@@ -91,6 +91,17 @@
                 </div>
                 <div class="card-body">
                     <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <div class="d-flex gap-2">
+                                <input type="number" min="0" id="votingMinutes" class="form-control" placeholder="Minutes (optional)">
+                                <button class="btn btn-outline-success" id="openVotingBtn">Open Voting</button>
+                                <button class="btn btn-outline-danger" id="closeVotingBtn">Close Voting</button>
+                                <div class="ms-auto align-self-center">
+                                    <span id="votingStatusBadge" class="badge bg-secondary">Checking...</span>
+                                    <small id="votingUntilText" class="ms-2 text-muted"></small>
+                                </div>
+                            </div>
+                        </div>
                         <div class="col-md-4 mb-3">
                             <button class="btn btn-primary w-100" onclick="generateVoterIds()">
                                 Generate Voter IDs
@@ -333,6 +344,77 @@ function updateTokenStatus() {
 // Update token status on page load
 document.addEventListener('DOMContentLoaded', function() {
     updateTokenStatus();
+});
+
+// Voting control and polling
+async function fetchVotingStatus() {
+    try {
+        const res = await fetch('/admin/voting-status');
+        if (!res.ok) return;
+        const data = await res.json();
+        const badge = document.getElementById('votingStatusBadge');
+        const untilText = document.getElementById('votingUntilText');
+        if (data.voting_open) {
+            badge.textContent = 'OPEN';
+            badge.className = 'badge bg-success';
+        } else {
+            badge.textContent = 'CLOSED';
+            badge.className = 'badge bg-danger';
+        }
+        if (data.voting_until) {
+            untilText.textContent = 'Until: ' + new Date(data.voting_until).toLocaleString();
+        } else {
+            untilText.textContent = '';
+        }
+    } catch (e) {
+        // ignore
+    }
+}
+
+async function openVoting() {
+    const minutes = parseInt(document.getElementById('votingMinutes').value) || 0;
+    const res = await fetch('/admin/voting-control', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+        },
+        body: JSON.stringify({ action: 'open', minutes })
+    });
+    if (res.ok) {
+        alert('Voting opened');
+        fetchVotingStatus();
+    } else {
+        const err = await res.json();
+        alert('Error: ' + (err.error || 'Unable to open voting'));
+    }
+}
+
+async function closeVoting() {
+    const res = await fetch('/admin/voting-control', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+        },
+        body: JSON.stringify({ action: 'close' })
+    });
+    if (res.ok) {
+        alert('Voting closed');
+        fetchVotingStatus();
+    } else {
+        const err = await res.json();
+        alert('Error: ' + (err.error || 'Unable to close voting'));
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('openVotingBtn').addEventListener('click', openVoting);
+    document.getElementById('closeVotingBtn').addEventListener('click', closeVoting);
+
+    // Initial fetch and polling every 60s
+    fetchVotingStatus();
+    setInterval(fetchVotingStatus, 60 * 1000);
 });
 </script>
 {% endblock %}

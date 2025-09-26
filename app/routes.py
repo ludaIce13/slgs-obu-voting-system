@@ -1,6 +1,7 @@
 from flask import Blueprint, request, render_template, redirect, url_for, flash, jsonify
 from . import db
 from .models import Voter, Candidate, Vote, Position
+from .models import Setting
 from datetime import datetime, timedelta
 import csv
 import io
@@ -23,6 +24,18 @@ def index():
 @main.route('/vote', methods=['GET', 'POST'])
 def vote():
     client_ip = request.remote_addr
+
+    # Check voting status setting
+    try:
+        voting_open = False
+        voting_setting = Setting.query.filter_by(key='voting_open').first()
+        if voting_setting and voting_setting.value == 'true':
+            voting_open = True
+    except Exception:
+        voting_open = False
+
+    if not voting_open:
+        return render_template('vote.html', positions=[], error='Voting is currently closed.'), 403
 
     if request.method == 'POST':
         voter_id = request.form.get('voter_id')
@@ -188,6 +201,76 @@ def admin_debug():
                             voters=voters,
                             position_results=position_results,
                             auth_ok=True)
+
+
+# Voting control endpoints
+@admin.route('/voting-status')
+def voting_status():
+    """Return current voting status and countdown if set."""
+    try:
+        vs = Setting.query.filter_by(key='voting_open').first()
+        until = Setting.query.filter_by(key='voting_until').first()
+        return jsonify({
+            'voting_open': vs.value == 'true' if vs else False,
+            'voting_until': until.value if until else None
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@admin.route('/voting-control', methods=['POST'])
+def voting_control():
+    """Open or close voting. POST payload: {'action': 'open'|'close', 'minutes': <int> (optional)}"""
+    if not request.headers.get('Authorization') == 'Bearer ' + os.environ.get('ADMIN_TOKEN', 'admin-token'):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    data = request.get_json() or {}
+    action = data.get('action')
+    minutes = int(data.get('minutes', 0)) if data.get('minutes') else 0
+
+    try:
+        if action == 'open':
+            # Set voting_open and optionally voting_until
+            vs = Setting.query.filter_by(key='voting_open').first()
+            if not vs:
+                vs = Setting(key='voting_open', value='true')
+                db.session.add(vs)
+            else:
+                vs.value = 'true'
+
+            if minutes > 0:
+                import datetime
+                until_time = (datetime.datetime.utcnow() + datetime.timedelta(minutes=minutes)).isoformat()
+                vu = Setting.query.filter_by(key='voting_until').first()
+                if not vu:
+                    vu = Setting(key='voting_until', value=until_time)
+                    db.session.add(vu)
+                else:
+                    vu.value = until_time
+            else:
+                # Clear voting_until
+                vu = Setting.query.filter_by(key='voting_until').first()
+                if vu:
+                    db.session.delete(vu)
+
+            db.session.commit()
+            return jsonify({'message': 'Voting opened'}), 200
+
+        elif action == 'close':
+            vs = Setting.query.filter_by(key='voting_open').first()
+            if vs:
+                vs.value = 'false'
+            vu = Setting.query.filter_by(key='voting_until').first()
+            if vu:
+                db.session.delete(vu)
+            db.session.commit()
+            return jsonify({'message': 'Voting closed'}), 200
+
+        else:
+            return jsonify({'error': 'Invalid action'}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 @main.route('/favicon.ico')
 def favicon():
