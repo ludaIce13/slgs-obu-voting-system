@@ -22,7 +22,12 @@ def create_app():
         elif database_url.startswith('postgresql://'):
             database_url = database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-        print(f"Using PostgreSQL database: {database_url[:50]}...")
+        # Log a short informational message
+        try:
+            app.logger.info("Using PostgreSQL database via DATABASE_URL")
+        except Exception:
+            # fallback if logger not available
+            print("Using PostgreSQL database via DATABASE_URL")
     else:
         # Check if we're in production environment
         is_production = os.environ.get('RENDER') or os.environ.get('PRODUCTION')
@@ -40,13 +45,16 @@ def create_app():
         sqlite_uri = f"sqlite:///{sqlite_db_path}"
 
         if is_production:
-            # In production without DATABASE_URL, connecting to localhost Postgres
-            # will fail on Render (no local Postgres). Fall back to SQLite so the
-            # site can still run, but instruct the admin to provision a proper
-            # managed Postgres database and set DATABASE_URL in the service env.
-            print("WARNING: Production environment detected but no DATABASE_URL found.")
-            print("Falling back to SQLite (instance/voting.db). This is not suitable for a multi-instance production setup.")
-            print("Please provision a managed PostgreSQL database on Render and add the DATABASE_URL environment variable to your service.")
+            # In production without DATABASE_URL, prefer to log a concise warning
+            # and avoid spamming logs with long guidance. Allow opt-out using
+            # SILENCE_DB_WARNING=1 in the service environment.
+            silence = os.environ.get('SILENCE_DB_WARNING') == '1'
+            if not silence:
+                try:
+                    app.logger.warning('Production environment detected but no DATABASE_URL found. Falling back to SQLite (instance/voting.db).')
+                    app.logger.info('Consider provisioning a managed PostgreSQL database and setting DATABASE_URL for multi-instance deployments.')
+                except Exception:
+                    print('WARNING: Production environment detected but no DATABASE_URL found. Falling back to SQLite (instance/voting.db).')
             # Fallback to SQLite (allows the app to run but not recommended for production)
             app.config['SQLALCHEMY_DATABASE_URI'] = sqlite_uri
         else:
@@ -77,14 +85,20 @@ def create_app():
             # Create tables if they don't exist
             with app.app_context():
                 db.create_all()
-                print('SQLite database initialized (instance folder and tables created).')
+                try:
+                    app.logger.info('SQLite database initialized (instance folder and tables created).')
+                except Exception:
+                    print('SQLite database initialized (instance folder and tables created).')
 
                 # Seed sample positions and candidates if none exist
                 try:
                     from app.models import Position, Candidate
 
                     if Position.query.count() == 0:
-                        print('Seeding sample positions and candidates...')
+                        try:
+                            app.logger.info('Seeding sample positions and candidates...')
+                        except Exception:
+                            print('Seeding sample positions and candidates...')
 
                         positions_data = [
                             'President', 'Vice President', 'Secretary', 'Assistant Secretary',
@@ -117,7 +131,10 @@ def create_app():
                             db.session.add(cand)
 
                         db.session.commit()
-                        print('Sample data seeded: positions and candidates created.')
+                        try:
+                            app.logger.info('Sample data seeded: positions and candidates created.')
+                        except Exception:
+                            print('Sample data seeded: positions and candidates created.')
                 except Exception as e:
                     print(f'Warning: failed to seed sample data: {e}')
     except Exception as e:

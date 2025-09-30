@@ -1,4 +1,5 @@
 from flask import Blueprint, request, render_template, redirect, url_for, flash, jsonify
+from flask import current_app, send_from_directory
 from . import db
 from .models import Voter, Candidate, Vote, Position
 from .models import Setting
@@ -7,6 +8,7 @@ import csv
 import io
 import json
 import os
+from werkzeug.utils import secure_filename
 from collections import defaultdict
 
 main = Blueprint('main', __name__)
@@ -332,6 +334,17 @@ def favicon():
     return '', 204
 
 
+@main.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    """Serve uploaded files from the instance/uploads directory."""
+    upload_dir = os.path.join(current_app.instance_path, 'uploads')
+    # Security: ensure path is within upload_dir
+    safe_path = os.path.join(upload_dir, filename)
+    if not os.path.exists(safe_path):
+        return '', 404
+    return send_from_directory(upload_dir, filename)
+
+
 @main.route('/_health')
 def health():
     """Simple health check endpoint that verifies DB connectivity."""
@@ -367,16 +380,15 @@ def upload_voters():
 
         for row in csv_input:
             if len(row) >= 3:
-                member_id, full_name, graduation_year = row[:3]
+                member_id, full_name, phone_number = row[:3]
 
                 # Validate data
-                if not member_id or not full_name or not graduation_year:
+                if not member_id or not full_name or not phone_number:
                     invalid_rows += 1
                     continue
 
-                try:
-                    grad_year = int(graduation_year)
-                except ValueError:
+                # Basic phone number validation (should contain digits)
+                if not any(char.isdigit() for char in phone_number):
                     invalid_rows += 1
                     continue
 
@@ -390,7 +402,7 @@ def upload_voters():
                 voter = Voter(
                     member_id=member_id,
                     full_name=full_name,
-                    graduation_year=grad_year
+                    phone_number=phone_number.strip()
                 )
                 voter.generate_voter_id()
                 db.session.add(voter)
@@ -482,14 +494,47 @@ def list_candidates():
 def create_candidate():
     if not _is_admin_req(request):
         return jsonify({'error': 'Unauthorized'}), 401
-    data = request.get_json() or {}
-    name = data.get('name')
-    bio = data.get('bio')
-    photo_url = data.get('photo_url')
-    position_id = data.get('position_id')
-    if not name or not position_id:
-        return jsonify({'error': 'name and position_id required'}), 400
+    # Support JSON or multipart/form-data with optional file upload
     try:
+        name = None
+        bio = None
+        position_id = None
+        photo_url = None
+
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            name = request.form.get('name')
+            bio = request.form.get('bio')
+            position_id = request.form.get('position_id')
+            try:
+                position_id = int(position_id) if position_id is not None else None
+            except Exception:
+                # leave as-is; validation later
+                pass
+
+            file = request.files.get('photo_file')
+            if file and file.filename:
+                upload_dir = os.path.join(current_app.instance_path, 'uploads')
+                os.makedirs(upload_dir, exist_ok=True)
+                filename = secure_filename(file.filename)
+                filepath = os.path.join(upload_dir, filename)
+                # Avoid clobbering existing files - prefix with timestamp if exists
+                if os.path.exists(filepath):
+                    import time
+                    filename = f"{int(time.time())}_{filename}"
+                    filepath = os.path.join(upload_dir, filename)
+                file.save(filepath)
+                # Serve via /uploads/<filename>
+                photo_url = url_for('main.uploaded_file', filename=filename)
+        else:
+            data = request.get_json() or {}
+            name = data.get('name')
+            bio = data.get('bio')
+            position_id = data.get('position_id')
+            photo_url = data.get('photo_url')
+
+        if not name or not position_id:
+            return jsonify({'error': 'name and position_id required'}), 400
+
         cand = Candidate(name=name, bio=bio, photo_url=photo_url, position_id=position_id)
         db.session.add(cand)
         db.session.commit()
@@ -503,15 +548,44 @@ def create_candidate():
 def update_candidate(candidate_id):
     if not _is_admin_req(request):
         return jsonify({'error': 'Unauthorized'}), 401
-    data = request.get_json() or {}
     try:
         cand = Candidate.query.get(candidate_id)
         if not cand:
             return jsonify({'error': 'Not found'}), 404
-        cand.name = data.get('name', cand.name)
-        cand.bio = data.get('bio', cand.bio)
-        cand.photo_url = data.get('photo_url', cand.photo_url)
-        cand.position_id = data.get('position_id', cand.position_id)
+
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            name = request.form.get('name')
+            bio = request.form.get('bio')
+            position_id = request.form.get('position_id')
+            try:
+                position_id = int(position_id) if position_id is not None else None
+            except Exception:
+                pass
+            file = request.files.get('photo_file')
+            if name:
+                cand.name = name
+            if bio is not None:
+                cand.bio = bio
+            if position_id:
+                cand.position_id = position_id
+            if file and file.filename:
+                upload_dir = os.path.join(current_app.instance_path, 'uploads')
+                os.makedirs(upload_dir, exist_ok=True)
+                filename = secure_filename(file.filename)
+                filepath = os.path.join(upload_dir, filename)
+                if os.path.exists(filepath):
+                    import time
+                    filename = f"{int(time.time())}_{filename}"
+                    filepath = os.path.join(upload_dir, filename)
+                file.save(filepath)
+                cand.photo_url = url_for('main.uploaded_file', filename=filename)
+        else:
+            data = request.get_json() or {}
+            cand.name = data.get('name', cand.name)
+            cand.bio = data.get('bio', cand.bio)
+            cand.photo_url = data.get('photo_url', cand.photo_url)
+            cand.position_id = data.get('position_id', cand.position_id)
+
         db.session.commit()
         return jsonify({'message': 'Candidate updated'})
     except Exception as e:
@@ -533,3 +607,11 @@ def delete_candidate(candidate_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+@admin.route('/positions', methods=['GET'])
+def list_positions():
+    if not _is_admin_req(request):
+        return jsonify({'error': 'Unauthorized'}), 401
+    positions = Position.query.all()
+    return jsonify([{'id': p.id, 'name': p.name} for p in positions])

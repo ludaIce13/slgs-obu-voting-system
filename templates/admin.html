@@ -145,7 +145,7 @@
                             <label for="voterFile" class="form-label">Select CSV file with voter data:</label>
                             <input class="form-control" type="file" id="voterFile" name="file" accept=".csv">
                             <div class="form-text">
-                                CSV format: MemberID, FullName, GraduationYear
+                                CSV format: MemberID, FullName, PhoneNumber
                             </div>
                         </div>
                         <button type="submit" class="btn btn-primary">Upload Voters</button>
@@ -169,7 +169,7 @@
                                     <th>Member ID</th>
                                     <th>Full Name</th>
                                     <th>Voter ID</th>
-                                    <th>Graduation Year</th>
+                                    <th>Phone Number</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
@@ -179,7 +179,7 @@
                                     <td>{{ voter.member_id }}</td>
                                     <td>{{ voter.full_name }}</td>
                                     <td><code>{{ voter.voter_id }}</code></td>
-                                    <td>{{ voter.graduation_year }}</td>
+                                    <td>{{ voter.phone_number }}</td>
                                     <td>
                                         {% if voter.has_voted %}
                                             <span class="badge bg-success">Voted</span>
@@ -224,12 +224,13 @@
                             <div id="collapse{{ pos.id }}" class="accordion-collapse collapse" aria-labelledby="heading{{ pos.id }}" data-bs-parent="#positionsAccordion">
                                 <div class="accordion-body">
                                     <div class="d-flex mb-2">
-                                        <button class="btn btn-sm btn-primary me-2" onclick="openCandidateModalForPosition({{ pos.id }})">Add Candidate to {{ pos.name }}</button>
-                                        <button class="btn btn-sm btn-outline-secondary" onclick="loadCandidates({{ pos.id }})">Refresh</button>
+                                        <button class="btn btn-sm btn-primary me-2 add-candidate-btn" data-pos="{{ pos.id }}">Add Candidate to {{ pos.name }}</button>
+                                        <button class="btn btn-sm btn-outline-info toggle-edit-btn" id="toggleEditBtn{{ pos.id }}" data-pos="{{ pos.id }}">Edit Candidates</button>
+                                        <button class="btn btn-sm btn-outline-secondary ms-2 d-none refresh-pos-btn" id="refreshBtn{{ pos.id }}" data-pos="{{ pos.id }}">Refresh</button>
                                     </div>
-                                    <div class="table-responsive">
+                                    <div class="table-responsive d-none" id="candidatesWrapperPos{{ pos.id }}">
                                         <table class="table table-sm table-hover" id="candidatesTablePos{{ pos.id }}">
-                                            <thead>
+                                            <thead class="d-none">
                                                 <tr>
                                                     <th>ID</th>
                                                     <th>Name</th>
@@ -282,7 +283,12 @@
                     <textarea id="candidateBio" class="form-control" rows="3"></textarea>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Photo URL</label>
+                    <label class="form-label">Photo (file upload preferred)</label>
+                    <input id="candidatePhotoFile" type="file" accept="image/*" class="form-control" />
+                    <div class="form-text">Or provide a URL in the field below.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Photo URL (optional)</label>
                     <input id="candidatePhoto" class="form-control" />
                 </div>
             </form>
@@ -509,7 +515,10 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(fetchVotingStatus, 60 * 1000);
     
     // Candidate management init
-    initCandidateManagement();
+    initCandidateManagement().then(() => {
+        // After positions are loaded, bind per-position buttons
+        bindPositionButtons();
+    });
 });
 
 // Candidate management JS
@@ -534,6 +543,44 @@ async function initCandidateManagement() {
     await loadCandidates();
 }
 
+function bindPositionButtons() {
+    document.querySelectorAll('.add-candidate-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+            const posId = parseInt(btn.dataset.pos);
+            openCandidateModalForPosition(posId);
+        });
+    });
+    document.querySelectorAll('.toggle-edit-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+            const posId = parseInt(btn.dataset.pos);
+            toggleEditTable(posId);
+        });
+    });
+    document.querySelectorAll('.refresh-pos-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+            const posId = parseInt(btn.dataset.pos);
+            loadCandidates(posId);
+        });
+    });
+}
+
+function toggleEditTable(posId) {
+    const wrapper = document.getElementById(`candidatesWrapperPos${posId}`);
+    const toggleBtn = document.getElementById(`toggleEditBtn${posId}`);
+    const refreshBtn = document.getElementById(`refreshBtn${posId}`);
+    if (!wrapper) return;
+    if (wrapper.classList.contains('d-none')) {
+        wrapper.classList.remove('d-none');
+        if (refreshBtn) refreshBtn.classList.remove('d-none');
+        loadCandidates(posId);
+        if (toggleBtn) toggleBtn.textContent = 'Hide Candidates';
+    } else {
+        wrapper.classList.add('d-none');
+        if (refreshBtn) refreshBtn.classList.add('d-none');
+        if (toggleBtn) toggleBtn.textContent = 'Edit Candidates';
+    }
+}
+
 async function loadCandidates(posId) {
     // If posId provided, only refresh that position table; otherwise refresh all
     const res = await fetch('/admin/candidates', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('adminToken') } });
@@ -553,7 +600,9 @@ async function loadCandidates(posId) {
                 <td>${c.id}</td>
                 <td>${c.name}</td>
                 <td>${c.bio || ''}</td>
-                <td>${c.photo_url || ''}</td>
+                <td>
+                    ${c.photo_url ? `<img src="${c.photo_url}" style="max-height:48px; max-width:80px; object-fit:cover;" /> <div>${c.photo_url}</div>` : ''}
+                </td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary me-1" onclick="editCandidate(${c.id})">Edit</button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteCandidate(${c.id})">Delete</button>
@@ -609,25 +658,57 @@ async function editCandidate(id) {
 
 async function saveCandidate() {
     const id = document.getElementById('candidateId').value;
-    const payload = {
-        name: document.getElementById('candidateName').value,
-        bio: document.getElementById('candidateBio').value,
-        photo_url: document.getElementById('candidatePhoto').value,
-        position_id: parseInt(document.getElementById('candidatePosition').value)
-    };
+    const name = document.getElementById('candidateName').value;
+    const bio = document.getElementById('candidateBio').value;
+    const photoUrl = document.getElementById('candidatePhoto').value;
+    const positionId = parseInt(document.getElementById('candidatePosition').value);
+
+    const fileInput = document.getElementById('candidatePhotoFile');
+    const file = fileInput && fileInput.files && fileInput.files[0];
+
     let res;
-    if (id) {
-        res = await fetch('/admin/candidates/' + id, {
-            method: 'PUT',
-            headers: _authHeaders(),
-            body: JSON.stringify(payload)
-        });
+    if (file) {
+        // Send multipart/form-data
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('bio', bio);
+        formData.append('position_id', positionId);
+        formData.append('photo_file', file);
+        // Include URL as fallback
+        if (photoUrl) formData.append('photo_url', photoUrl);
+
+        if (id) {
+            res = await fetch('/admin/candidates/' + id, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                },
+                body: formData
+            });
+        } else {
+            res = await fetch('/admin/candidates', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                },
+                body: formData
+            });
+        }
     } else {
-        res = await fetch('/admin/candidates', {
-            method: 'POST',
-            headers: _authHeaders(),
-            body: JSON.stringify(payload)
-        });
+        const payload = { name, bio, photo_url: photoUrl, position_id: positionId };
+        if (id) {
+            res = await fetch('/admin/candidates/' + id, {
+                method: 'PUT',
+                headers: _authHeaders(),
+                body: JSON.stringify(payload)
+            });
+        } else {
+            res = await fetch('/admin/candidates', {
+                method: 'POST',
+                headers: _authHeaders(),
+                body: JSON.stringify(payload)
+            });
+        }
     }
     if (res.ok) {
         alert('Saved');
