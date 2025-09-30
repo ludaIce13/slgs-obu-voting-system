@@ -14,6 +14,19 @@ def create_app():
 
     # Database configuration - prioritize PostgreSQL for production
     database_url = os.environ.get('DATABASE_URL')
+
+    # Debug logging for Render deployment
+    try:
+        app.logger.info(f"Environment check - RENDER: {os.environ.get('RENDER')}")
+        app.logger.info(f"DATABASE_URL present: {database_url is not None}")
+        if database_url:
+            app.logger.info(f"DATABASE_URL length: {len(database_url)}")
+            app.logger.info(f"DATABASE_URL prefix: {database_url[:20]}...")
+    except Exception:
+        print(f"DATABASE_URL present: {database_url is not None}")
+        if database_url:
+            print(f"DATABASE_URL length: {len(database_url)}")
+
     if database_url:
         # Render provides PostgreSQL via DATABASE_URL
         # Convert postgres:// to postgresql+psycopg:// for SQLAlchemy with psycopg3
