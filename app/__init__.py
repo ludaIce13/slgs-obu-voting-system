@@ -84,8 +84,21 @@ def create_app():
     # Initialize extensions
     db.init_app(app)
 
-    # If using SQLite fallback, ensure the instance folder exists and
-    # create the database tables so the app doesn't error on first request.
+    # Create database tables if they don't exist (works for both SQLite and PostgreSQL)
+    with app.app_context():
+        try:
+            # Try to connect to database
+            db.engine.connect()
+            print("Database connection successful")
+
+            # Create all tables
+            db.create_all()
+            print("Database tables created/verified successfully")
+
+        except Exception as e:
+            print(f"Database initialization error: {e}")
+            import traceback
+            traceback.print_exc()
     try:
         if app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite:'):
             # Ensure instance folder exists
