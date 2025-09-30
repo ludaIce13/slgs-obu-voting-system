@@ -185,19 +185,32 @@ def admin_dashboard():
     print(f"Admin dashboard access - Token: {token}, Expected: {expected_token}, Debug: {debug_mode}, Auth OK: {auth_ok}")
 
     if auth_ok:
-        total_voters = Voter.query.count()
-        voted_count = Voter.query.filter_by(has_voted=True).count()
-        positions = Position.query.all()
-        candidates = Candidate.query.all()
-        voters = Voter.query.all()
+        try:
+            total_voters = Voter.query.count()
+            voted_count = Voter.query.filter_by(has_voted=True).count()
+            positions = Position.query.all()
+            candidates = Candidate.query.all()
+            voters = Voter.query.all()
 
-        # Get vote counts by position
-        position_results = {}
-        for position in positions:
-            position_candidates = Candidate.query.filter_by(position_id=position.id).all()
-            position_results[position.name] = {c.name: len(c.votes) for c in position_candidates}
+            # Get vote counts by position
+            position_results = {}
+            for position in positions:
+                position_candidates = Candidate.query.filter_by(position_id=position.id).all()
+                position_results[position.name] = {c.name: len(c.votes) for c in position_candidates}
 
-        print(f"Authorized view - Voters: {total_voters}, Positions: {len(positions)}, Candidates: {len(candidates)}")
+            print(f"Authorized view - Voters: {total_voters}, Positions: {len(positions)}, Candidates: {len(candidates)}")
+        except Exception as e:
+            print(f"Error loading admin dashboard data: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fallback to empty data if database queries fail
+            total_voters = 0
+            voted_count = 0
+            positions = []
+            candidates = []
+            voters = []
+            position_results = {}
+            print("Fallback to empty data due to database error")
     else:
         total_voters = 0
         voted_count = 0
