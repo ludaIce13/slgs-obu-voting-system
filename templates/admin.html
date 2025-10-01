@@ -348,18 +348,37 @@ async function generateVoterIds() {
 }
 
 async function exportResults() {
-    const response = await fetch('/admin/export-results', {
-        headers: {
-            'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
-        }
-    });
+    try {
+        const response = await fetch('/admin/export-results', {
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+            }
+        });
 
-    if (response.ok) {
-        const results = await response.json();
-        console.log('Election Results:', results);
-        alert('Results exported to console. In production, this would download a file.');
-    } else {
-        alert('Error exporting results');
+        if (response.ok) {
+            // Get the CSV content
+            const csvContent = await response.text();
+
+            // Create download link
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'slgs_obu_election_results.csv';
+            document.body.appendChild(a);
+            a.click();
+
+            // Clean up
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            alert('Election results downloaded successfully!');
+        } else {
+            const error = await response.json();
+            alert('Error exporting results: ' + (error.error || 'Unknown error'));
+        }
+    } catch (error) {
+        alert('Error exporting results: ' + error.message);
     }
 }
 

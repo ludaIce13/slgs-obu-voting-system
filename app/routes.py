@@ -455,18 +455,40 @@ def export_results():
         return jsonify({'error': 'Unauthorized'}), 401
 
     positions = Position.query.all()
-    results = []
 
+    # Create CSV content
+    import io
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Write header
+    writer.writerow(['Position', 'Candidate', 'Votes'])
+
+    # Write data
     for position in positions:
         position_candidates = Candidate.query.filter_by(position_id=position.id).all()
         for candidate in position_candidates:
-            results.append({
-                'position': position.name,
-                'candidate': candidate.name,
-                'votes': len(candidate.votes)
-            })
+            writer.writerow([
+                position.name,
+                candidate.name,
+                len(candidate.votes)
+            ])
 
-    return jsonify(results), 200
+    # Get CSV content
+    csv_content = output.getvalue()
+    output.close()
+
+    # Create response with CSV file
+    from flask import Response
+    response = Response(
+        csv_content,
+        mimetype='text/csv',
+        headers={
+            'Content-disposition': 'attachment; filename=slgs_obu_election_results.csv'
+        }
+    )
+
+    return response
 
 @admin.route('/clear-voters', methods=['POST'])
 def clear_voters():
