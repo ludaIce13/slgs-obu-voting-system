@@ -212,6 +212,39 @@ def admin_dashboard():
                 position_results[position.name] = {c.name: len(c.votes) for c in position_candidates}
 
             print(f"Authorized view - Voters: {total_voters}, Positions: {len(positions)}, Candidates: {len(candidates)}")
+
+            # Debug: List all positions found
+            if positions:
+                print("Positions found:")
+                for pos in positions:
+                    print(f"  - {pos.name} (ID: {pos.id})")
+            else:
+                print("WARNING: No positions found in database!")
+                print("Attempting to create positions...")
+
+                # Try to create positions if none exist
+                try:
+                    positions_data = [
+                        'President', 'Vice President', 'Secretary', 'Assistant Secretary',
+                        'Treasurer', 'Assistant Treasurer', 'Social & Organizing Secretary',
+                        'Assistant Social Secretary & Organizing Secretary', 'Publicity Secretary',
+                        'Chairman Improvement Committee', 'Diaspora Coordinator', 'Chief Whip'
+                    ]
+
+                    for name in positions_data:
+                        pos = Position(name=name, description=f'{name} of SLGS Old Boys Union')
+                        db.session.add(pos)
+
+                    db.session.commit()
+                    print(f"Created {len(positions_data)} positions successfully")
+
+                    # Refresh positions list
+                    positions = Position.query.all()
+                    print(f"Refreshed positions: now have {len(positions)} positions")
+
+                except Exception as e:
+                    print(f"Failed to create positions: {e}")
+
         except Exception as e:
             print(f"Error loading admin dashboard data: {e}")
             import traceback
