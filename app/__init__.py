@@ -95,36 +95,43 @@ def create_app():
             db.create_all()
             print("Database tables created/verified successfully")
 
-            # Seed SLGS OBU positions if none exist (for both PostgreSQL and SQLite)
-            try:
-                from app.models import Position
-
-                if Position.query.count() == 0:
-                    print('Creating SLGS OBU positions...')
-
-                    positions_data = [
-                        'President', 'Vice President', 'Secretary', 'Assistant Secretary',
-                        'Treasurer', 'Assistant Treasurer', 'Social & Organizing Secretary',
-                        'Assistant Social Secretary & Organizing Secretary', 'Publicity Secretary',
-                        'Chairman Improvement Committee', 'Diaspora Coordinator', 'Chief Whip'
-                    ]
-
-                    for name in positions_data:
-                        pos = Position(name=name, description=f'{name} of SLGS Old Boys Union')
-                        db.session.add(pos)
-
-                    db.session.commit()
-                    print(f'Created {len(positions_data)} SLGS OBU positions successfully')
-                else:
-                    print(f'Found {Position.query.count()} existing positions')
-
-            except Exception as e:
-                print(f'Warning: failed to create positions: {e}')
-
         except Exception as e:
             print(f"Database initialization error: {e}")
             import traceback
             traceback.print_exc()
+
+        # Seed SLGS OBU positions if none exist (for both PostgreSQL and SQLite)
+        try:
+            from app.models import Position
+
+            # Check if positions exist, if not create them
+            position_count = Position.query.count()
+            print(f'Checking positions: found {position_count} positions')
+
+            if position_count == 0:
+                print('Creating SLGS OBU positions...')
+
+                positions_data = [
+                    'President', 'Vice President', 'Secretary', 'Assistant Secretary',
+                    'Treasurer', 'Assistant Treasurer', 'Social & Organizing Secretary',
+                    'Assistant Social Secretary & Organizing Secretary', 'Publicity Secretary',
+                    'Chairman Improvement Committee', 'Diaspora Coordinator', 'Chief Whip'
+                ]
+
+                for name in positions_data:
+                    pos = Position(name=name, description=f'{name} of SLGS Old Boys Union')
+                    db.session.add(pos)
+
+                db.session.commit()
+                print(f'Created {len(positions_data)} SLGS OBU positions successfully')
+            else:
+                print(f'Positions already exist: {position_count} positions found')
+
+        except Exception as e:
+            print(f'Warning: failed to create positions: {e}')
+            import traceback
+            traceback.print_exc()
+    # Additional initialization for SQLite (if needed)
     try:
         if app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite:'):
             # Ensure instance folder exists
@@ -134,14 +141,13 @@ def create_app():
                 # instance_path may already exist or permissions may vary
                 pass
 
-            # Create tables if they don't exist
+            # Create tables if they don't exist (already done above, but just in case)
             with app.app_context():
                 db.create_all()
                 try:
                     app.logger.info('SQLite database initialized (instance folder and tables created).')
                 except Exception:
                     print('SQLite database initialized (instance folder and tables created).')
-
     except Exception as e:
         # Print but don't crash the app; the health endpoint will surface DB errors
         print(f'Warning: failed to initialize SQLite DB automatically: {e}')
