@@ -79,7 +79,8 @@ def vote():
 
     if request.method == 'POST':
         voter_id = request.form.get('voter_id')
-        print(f"VOTE ATTEMPT - IP: {client_ip}, Voter ID: {voter_id}")
+        voting_token = request.form.get('voting_token')
+        print(f"VOTE ATTEMPT - IP: {client_ip}, Voter ID: {voter_id}, Token: {voting_token[:8]}...")
 
         # Rate limiting check
         now = datetime.utcnow()
@@ -95,22 +96,34 @@ def vote():
         # Record this attempt
         vote_attempts[client_ip].append(now)
 
+        # Validate inputs
         if not voter_id:
             flash('Please enter your Voter ID.', 'error')
             return redirect(url_for('main.vote'))
 
+        if not voting_token:
+            flash('Please enter your Voting Token.', 'error')
+            return redirect(url_for('main.vote'))
+
         # Validate Voter ID format (must be exactly 8 digits)
         if not (voter_id.isdigit() and len(voter_id) == 8):
-            print(f"VOTE REJECTED - Invalid format: {voter_id}")
+            print(f"VOTE REJECTED - Invalid Voter ID format: {voter_id}")
             flash('Voter ID must be exactly 8 digits.', 'error')
             return redirect(url_for('main.vote'))
 
-        voter = Voter.query.filter_by(voter_id=voter_id).first()
+        # Validate Voting Token format (must be exactly 16 alphanumeric characters)
+        if not (voting_token.isalnum() and len(voting_token) == 16):
+            print(f"VOTE REJECTED - Invalid Voting Token format: {voting_token}")
+            flash('Voting Token must be exactly 16 alphanumeric characters.', 'error')
+            return redirect(url_for('main.vote'))
+
+        # Find voter by both Voter ID and Voting Token
+        voter = Voter.query.filter_by(voter_id=voter_id, voting_token=voting_token).first()
         print(f"VOTE VALIDATION - Voter found: {voter is not None}")
 
         if not voter:
-            print(f"VOTE REJECTED - Voter ID not found: {voter_id}")
-            flash('Invalid Voter ID.', 'error')
+            print(f"VOTE REJECTED - Voter ID/Token combination not found: {voter_id}")
+            flash('Invalid Voter ID or Voting Token combination.', 'error')
             return redirect(url_for('main.vote'))
 
         if voter.has_voted:
@@ -392,16 +405,21 @@ def upload_voters():
         invalid_rows = 0
 
         for row in csv_input:
-            if len(row) >= 3:
-                member_id, full_name, phone_number = row[:3]
+            if len(row) >= 4:
+                member_id, full_name, phone_number, voting_token = row[:4]
 
                 # Validate data
-                if not member_id or not full_name or not phone_number:
+                if not member_id or not full_name or not phone_number or not voting_token:
                     invalid_rows += 1
                     continue
 
                 # Basic phone number validation (should contain digits)
                 if not any(char.isdigit() for char in phone_number):
+                    invalid_rows += 1
+                    continue
+
+                # Voting token validation (should be 16 alphanumeric characters)
+                if not (voting_token.isalnum() and len(voting_token) == 16):
                     invalid_rows += 1
                     continue
 
@@ -412,10 +430,17 @@ def upload_voters():
                     voters_skipped += 1
                     continue
 
+                # Check if voting token already exists
+                existing_token = Voter.query.filter_by(voting_token=voting_token).first()
+                if existing_token:
+                    invalid_rows += 1
+                    continue
+
                 voter = Voter(
                     member_id=member_id,
                     full_name=full_name,
-                    phone_number=phone_number.strip()
+                    phone_number=phone_number.strip(),
+                    voting_token=voting_token.strip()
                 )
                 voter.generate_voter_id()
                 db.session.add(voter)

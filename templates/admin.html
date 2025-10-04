@@ -145,7 +145,7 @@
                             <label for="voterFile" class="form-label">Select CSV file with voter data:</label>
                             <input class="form-control" type="file" id="voterFile" name="file" accept=".csv">
                             <div class="form-text">
-                                CSV format: MemberID, FullName, PhoneNumber
+                                CSV format: MemberID, FullName, PhoneNumber, VotingToken
                             </div>
                         </div>
                         <button type="submit" class="btn btn-primary">Upload Voters</button>
@@ -170,6 +170,7 @@
                                     <th>Full Name</th>
                                     <th>Voter ID</th>
                                     <th>Phone Number</th>
+                                    <th>Voting Token</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
@@ -180,6 +181,7 @@
                                     <td>{{ voter.full_name }}</td>
                                     <td><code>{{ voter.voter_id }}</code></td>
                                     <td>{{ voter.phone_number }}</td>
+                                    <td><code>{{ voter.voting_token }}</code></td>
                                     <td>
                                         {% if voter.has_voted %}
                                             <span class="badge bg-success">Voted</span>
@@ -191,7 +193,7 @@
                                 {% endfor %}
                                 {% if not voters %}
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted">
+                                    <td colspan="6" class="text-center text-muted">
                                         No voters registered yet. Upload a voter list above.
                                     </td>
                                 </tr>

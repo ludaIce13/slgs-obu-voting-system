@@ -9,6 +9,7 @@ class Voter(db.Model):
     full_name = db.Column(db.String(100), nullable=False)
     phone_number = db.Column(db.String(20), nullable=False)
     voter_id = db.Column(db.String(8), unique=True, nullable=False)
+    voting_token = db.Column(db.String(16), unique=True, nullable=False)
     has_voted = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -22,6 +23,17 @@ class Voter(db.Model):
                 self.voter_id = voter_id
                 break
         return self.voter_id
+
+    def generate_voting_token(self):
+        """Generate a unique 16-character alphanumeric voting token"""
+        while True:
+            # Generate 16-character alphanumeric token
+            voting_token = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(16))
+            # Check if it already exists
+            if not Voter.query.filter_by(voting_token=voting_token).first():
+                self.voting_token = voting_token
+                break
+        return self.voting_token
 
 class Position(db.Model):
     id = db.Column(db.Integer, primary_key=True)
