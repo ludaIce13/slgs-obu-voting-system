@@ -127,6 +127,15 @@ def create_app():
             else:
                 print(f'Positions already exist: {position_count} positions found')
 
+                # List existing positions for debugging
+                try:
+                    existing_positions = Position.query.all()
+                    print('Existing positions:')
+                    for pos in existing_positions:
+                        print(f'  - {pos.name} (ID: {pos.id})')
+                except Exception as e:
+                    print(f'Could not list positions: {e}')
+
         except Exception as e:
             print(f'Warning: failed to create positions: {e}')
             import traceback

@@ -675,3 +675,36 @@ def list_positions():
         return jsonify({'error': 'Unauthorized'}), 401
     positions = Position.query.all()
     return jsonify([{'id': p.id, 'name': p.name} for p in positions])
+
+
+@admin.route('/create-positions', methods=['POST'])
+def create_positions():
+    """Force create SLGS OBU positions if they don't exist"""
+    if not _is_admin_req(request):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        positions_data = [
+            'President', 'Vice President', 'Secretary', 'Assistant Secretary',
+            'Treasurer', 'Assistant Treasurer', 'Social & Organizing Secretary',
+            'Assistant Social Secretary & Organizing Secretary', 'Publicity Secretary',
+            'Chairman Improvement Committee', 'Diaspora Coordinator', 'Chief Whip'
+        ]
+
+        created_count = 0
+        for name in positions_data:
+            existing = Position.query.filter_by(name=name).first()
+            if not existing:
+                pos = Position(name=name, description=f'{name} of SLGS Old Boys Union')
+                db.session.add(pos)
+                created_count += 1
+
+        if created_count > 0:
+            db.session.commit()
+            return jsonify({'message': f'Created {created_count} positions successfully'}), 200
+        else:
+            return jsonify({'message': f'All {len(positions_data)} positions already exist'}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500

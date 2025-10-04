@@ -127,6 +127,11 @@
                                 Clear All Voters
                             </button>
                         </div>
+                        <div class="col-md-4 mb-3">
+                            <button class="btn btn-secondary w-100" onclick="createPositions()">
+                                Create Positions
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -398,6 +403,25 @@ function resetToken() {
 async function clearAllVoters() {
     if (confirm('Clear ALL voters from the database? This cannot be undone!')) {
         const response = await fetch('/admin/clear-voters', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+            }
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            alert(result.message);
+            location.reload();
+        } else {
+            alert('Error: ' + result.error);
+        }
+    }
+}
+
+async function createPositions() {
+    if (confirm('Create all SLGS OBU positions if they are missing?')) {
+        const response = await fetch('/admin/create-positions', {
             method: 'POST',
             headers: {
                 'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
