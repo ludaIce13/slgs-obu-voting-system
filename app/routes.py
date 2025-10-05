@@ -855,20 +855,38 @@ def fix_database():
         # Try to add the missing voting_token column
         with db.engine.connect() as conn:
             try:
+                # First, clear any failed transactions by starting a new one
+                conn.execute(db.text("ROLLBACK"))
+                print("Rolled back any existing failed transactions")
+
                 # Check if column exists first
                 result = conn.execute(db.text("SELECT voting_token FROM voter LIMIT 1"))
                 return jsonify({'message': 'voting_token column already exists'}), 200
             except Exception:
                 # Column doesn't exist, add it
-                conn.execute(db.text("ALTER TABLE voter ADD COLUMN voting_token VARCHAR(16) UNIQUE"))
-                conn.commit()
-
-                # Verify it was added
                 try:
-                    result = conn.execute(db.text("SELECT voting_token FROM voter LIMIT 1"))
-                    return jsonify({'message': '✅ Successfully added voting_token column to database'}), 200
-                except Exception as e:
-                    return jsonify({'error': f'Failed to verify column: {str(e)}'}), 500
+                    conn.execute(db.text("ALTER TABLE voter ADD COLUMN voting_token VARCHAR(16) UNIQUE"))
+                    conn.commit()
+                    print("Successfully added voting_token column")
+
+                    # Verify it was added
+                    try:
+                        result = conn.execute(db.text("SELECT voting_token FROM voter LIMIT 1"))
+                        return jsonify({'message': '✅ Successfully added voting_token column to database'}), 200
+                    except Exception as e:
+                        return jsonify({'error': f'Failed to verify column: {str(e)}'}), 500
+                except Exception as alter_error:
+                    # Try to rollback and retry once
+                    try:
+                        conn.execute(db.text("ROLLBACK"))
+                        conn.execute(db.text("ALTER TABLE voter ADD COLUMN voting_token VARCHAR(16) UNIQUE"))
+                        conn.commit()
+
+                        # Final verification
+                        result = conn.execute(db.text("SELECT voting_token FROM voter LIMIT 1"))
+                        return jsonify({'message': '✅ Successfully added voting_token column to database (after retry)'}), 200
+                    except Exception as retry_error:
+                        return jsonify({'error': f'Failed to add column after retry: {str(retry_error)}'}), 500
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
