@@ -118,8 +118,20 @@ def vote():
             return redirect(url_for('main.vote'))
 
         # Find voter by both Voter ID and Voting Token
-        voter = Voter.query.filter_by(voter_id=voter_id, voting_token=voting_token).first()
-        print(f"VOTE VALIDATION - Voter found: {voter is not None}")
+        try:
+            voter = Voter.query.filter_by(voter_id=voter_id, voting_token=voting_token).first()
+            print(f"VOTE VALIDATION - Voter found: {voter is not None}")
+        except Exception as voter_error:
+            print(f"Voter query error (likely missing voting_token column): {voter_error}")
+            # Try to find voter by voter_id only
+            try:
+                voter = Voter.query.filter_by(voter_id=voter_id).first()
+                print(f"VOTE VALIDATION - Voter found (without token): {voter is not None}")
+                if voter:
+                    print("WARNING: voting_token column missing, using voter_id only")
+            except Exception as fallback_error:
+                print(f"Fallback voter query also failed: {fallback_error}")
+                voter = None
 
         if not voter:
             print(f"VOTE REJECTED - Voter ID/Token combination not found: {voter_id}")
@@ -199,17 +211,65 @@ def admin_dashboard():
 
     if auth_ok:
         try:
-            total_voters = Voter.query.count()
-            voted_count = Voter.query.filter_by(has_voted=True).count()
-            positions = Position.query.all()
-            candidates = Candidate.query.all()
-            voters = Voter.query.all()
+            # Get voter statistics - handle missing voting_token column gracefully
+            try:
+                total_voters = Voter.query.count()
+                voted_count = Voter.query.filter_by(has_voted=True).count()
+            except Exception as voter_error:
+                print(f"Voter query error (likely missing voting_token column): {voter_error}")
+                # Try a more basic query without voting_token
+                try:
+                    total_voters = db.session.execute(db.text("SELECT COUNT(*) FROM voter")).scalar()
+                    voted_count = db.session.execute(db.text("SELECT COUNT(*) FROM voter WHERE has_voted = true")).scalar()
+                except Exception as fallback_error:
+                    print(f"Fallback query also failed: {fallback_error}")
+                    total_voters = 0
+                    voted_count = 0
+
+            # Get positions and candidates
+            try:
+                positions = Position.query.all()
+                candidates = Candidate.query.all()
+            except Exception as e:
+                print(f"Error loading positions/candidates: {e}")
+                positions = []
+                candidates = []
+
+            # Get voters for display - handle missing voting_token column
+            try:
+                voters = Voter.query.all()
+            except Exception:
+                # Try without voting_token column
+                try:
+                    voters_result = db.session.execute(db.text("SELECT id, member_id, full_name, phone_number, voter_id, has_voted, created_at FROM voter"))
+                    voters = []
+                    for row in voters_result:
+                        # Create a mock voter object with available fields
+                        class MockVoter:
+                            def __init__(self, data):
+                                self.id = data[0]
+                                self.member_id = data[1]
+                                self.full_name = data[2]
+                                self.phone_number = data[3]
+                                self.voter_id = data[4]
+                                self.has_voted = data[5]
+                                self.created_at = data[6]
+                                self.voting_token = "N/A (column missing)"
+
+                        voters.append(MockVoter(row))
+                except Exception as e:
+                    print(f"Could not fetch voters: {e}")
+                    voters = []
 
             # Get vote counts by position
             position_results = {}
-            for position in positions:
-                position_candidates = Candidate.query.filter_by(position_id=position.id).all()
-                position_results[position.name] = {c.name: len(c.votes) for c in position_candidates}
+            try:
+                for position in positions:
+                    position_candidates = Candidate.query.filter_by(position_id=position.id).all()
+                    position_results[position.name] = {c.name: len(c.votes) for c in position_candidates}
+            except Exception as e:
+                print(f"Error getting vote counts: {e}")
+                position_results = {}
 
             print(f"Authorized view - Voters: {total_voters}, Positions: {len(positions)}, Candidates: {len(candidates)}")
 
@@ -463,11 +523,15 @@ def upload_voters():
                     voters_skipped += 1
                     continue
 
-                # Check if voting token already exists
-                existing_token = Voter.query.filter_by(voting_token=voting_token).first()
-                if existing_token:
-                    invalid_rows += 1
-                    continue
+                # Check if voting token already exists (if column exists)
+                try:
+                    existing_token = Voter.query.filter_by(voting_token=voting_token).first()
+                    if existing_token:
+                        invalid_rows += 1
+                        continue
+                except Exception:
+                    # voting_token column doesn't exist, skip this check
+                    print("Warning: voting_token column missing, skipping duplicate token check")
 
                 voter = Voter(
                     member_id=member_id,
@@ -725,19 +789,86 @@ def create_positions():
         ]
 
         created_count = 0
+        existing_count = 0
+
         for name in positions_data:
             existing = Position.query.filter_by(name=name).first()
             if not existing:
                 pos = Position(name=name, description=f'{name} of SLGS Old Boys Union')
                 db.session.add(pos)
                 created_count += 1
+                print(f'Created position: {name}')
+            else:
+                existing_count += 1
+                print(f'Position already exists: {name}')
 
         if created_count > 0:
             db.session.commit()
-            return jsonify({'message': f'Created {created_count} positions successfully'}), 200
-        else:
-            return jsonify({'message': f'All {len(positions_data)} positions already exist'}), 200
+            print(f'Committed {created_count} new positions to database')
+
+        # Return detailed status
+        return jsonify({
+            'message': f'Created {created_count} positions, {existing_count} already existed',
+            'created': created_count,
+            'existing': existing_count,
+            'total_positions': len(positions_data)
+        }), 200
 
     except Exception as e:
         db.session.rollback()
+        print(f'Error creating positions: {e}')
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@admin.route('/check-positions', methods=['GET'])
+def check_positions():
+    """Debug endpoint to check current positions in database"""
+    if not _is_admin_req(request):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        positions = Position.query.all()
+        positions_list = [{'id': p.id, 'name': p.name, 'description': p.description} for p in positions]
+
+        return jsonify({
+            'count': len(positions_list),
+            'positions': positions_list
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e), 'count': 0, 'positions': []}), 500
+
+
+@admin.route('/fix-database', methods=['POST'])
+def fix_database():
+    """Fix database schema issues (adds missing columns)"""
+    if not _is_admin_req(request):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        # Check if we're using PostgreSQL
+        if not current_app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgresql'):
+            return jsonify({'error': 'This fix is only for PostgreSQL databases'}), 400
+
+        # Try to add the missing voting_token column
+        with db.engine.connect() as conn:
+            try:
+                # Check if column exists first
+                result = conn.execute(db.text("SELECT voting_token FROM voter LIMIT 1"))
+                return jsonify({'message': 'voting_token column already exists'}), 200
+            except Exception:
+                # Column doesn't exist, add it
+                conn.execute(db.text("ALTER TABLE voter ADD COLUMN voting_token VARCHAR(16) UNIQUE"))
+                conn.commit()
+
+                # Verify it was added
+                try:
+                    result = conn.execute(db.text("SELECT voting_token FROM voter LIMIT 1"))
+                    return jsonify({'message': '✅ Successfully added voting_token column to database'}), 200
+                except Exception as e:
+                    return jsonify({'error': f'Failed to verify column: {str(e)}'}), 500
+
+    except Exception as e:
         return jsonify({'error': str(e)}), 500

@@ -220,6 +220,14 @@
                     <h5 class="mb-0">Manage Candidates</h5>
                 </div>
                 <div class="card-body">
+                    <div class="d-flex gap-2 mb-3">
+                        <button id="createPositionsBtn" class="btn btn-warning btn-sm">Create Positions</button>
+                        <button id="checkPositionsBtn" class="btn btn-info btn-sm">Check Positions</button>
+                        <button id="fixDatabaseBtn" class="btn btn-danger btn-sm">Fix Database</button>
+                    </div>
+                    <div id="debugOutput" class="alert alert-secondary" style="display: none;">
+                        <small id="debugText"></small>
+                    </div>
                     <div class="accordion" id="positionsAccordion">
                         {% for pos in positions %}
                         <div class="accordion-item">
@@ -438,6 +446,101 @@ async function createPositions() {
     }
 }
 
+async function createPositionsFromBtn() {
+    const debugOutput = document.getElementById('debugOutput');
+    const debugText = document.getElementById('debugText');
+
+    try {
+        debugText.textContent = 'Creating positions...';
+        debugOutput.style.display = 'block';
+
+        const response = await fetch('/admin/create-positions', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+            }
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            debugText.textContent = `✅ ${result.message}`;
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            debugText.textContent = `❌ Error: ${result.error}`;
+        }
+    } catch (error) {
+        debugText.textContent = `❌ Network error: ${error.message}`;
+    }
+}
+
+async function checkPositionsFromBtn() {
+    const debugOutput = document.getElementById('debugOutput');
+    const debugText = document.getElementById('debugText');
+
+    try {
+        debugText.textContent = 'Checking positions...';
+        debugOutput.style.display = 'block';
+
+        const response = await fetch('/admin/check-positions', {
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+            }
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            if (result.count > 0) {
+                debugText.textContent = `✅ Found ${result.count} positions: ${result.positions.map(p => p.name).join(', ')}`;
+            } else {
+                debugText.textContent = `❌ No positions found in database`;
+            }
+        } else {
+            debugText.textContent = `❌ Error: ${result.error}`;
+        }
+    } catch (error) {
+        debugText.textContent = `❌ Network error: ${error.message}`;
+    }
+}
+
+async function fixDatabaseFromBtn() {
+    const debugOutput = document.getElementById('debugOutput');
+    const debugText = document.getElementById('debugText');
+
+    if (!confirm('This will fix database schema issues by adding missing columns. Continue?')) {
+        return;
+    }
+
+    try {
+        debugText.textContent = '🔧 Fixing database schema...';
+        debugOutput.style.display = 'block';
+
+        const response = await fetch('/admin/fix-database', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+            }
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            debugText.textContent = `✅ ${result.message}`;
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
+        } else {
+            debugText.textContent = `❌ Error: ${result.error}`;
+        }
+    } catch (error) {
+        debugText.textContent = `❌ Network error: ${error.message}`;
+    }
+}
+
 // Store admin token (in production, use proper authentication)
 if (!localStorage.getItem('adminToken')) {
     const token = prompt('Enter admin token:\n\nDefault token: admin-token\n\nThis is required to access admin functions.');
@@ -555,10 +658,21 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('openVotingBtn').addEventListener('click', openVoting);
     document.getElementById('closeVotingBtn').addEventListener('click', closeVoting);
 
+    // Debug buttons for positions
+    if (document.getElementById('createPositionsBtn')) {
+        document.getElementById('createPositionsBtn').addEventListener('click', createPositionsFromBtn);
+    }
+    if (document.getElementById('checkPositionsBtn')) {
+        document.getElementById('checkPositionsBtn').addEventListener('click', checkPositionsFromBtn);
+    }
+    if (document.getElementById('fixDatabaseBtn')) {
+        document.getElementById('fixDatabaseBtn').addEventListener('click', fixDatabaseFromBtn);
+    }
+
     // Initial fetch and polling every 60s
     fetchVotingStatus();
     setInterval(fetchVotingStatus, 60 * 1000);
-    
+
     // Candidate management init
     initCandidateManagement().then(() => {
         // After positions are loaded, bind per-position buttons
