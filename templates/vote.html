@@ -4,7 +4,7 @@
 <div class="voting-container">
     <div class="text-center mb-4">
         <h2>SLGS OBU Election Voting</h2>
-        <p class="text-info">Enter your 8-digit Voter ID and 16-character Voting Token to cast your votes</p>
+        <p class="text-info">Enter your Voter ID (same as your Member ID) and 16-character Voting Token to cast your votes</p>
         <div class="alert alert-warning">
             <strong>Security Notice:</strong> You need both your Voter ID and Voting Token to vote.
             These were provided to you by the election administrators. Invalid credentials will be rejected.
@@ -29,8 +29,8 @@
                         <div class="mb-3">
                             <label for="voterId" class="form-label">Voter ID</label>
                             <input type="text" class="form-control text-center" name="voter_id" id="voterId"
-                                   placeholder="12345678" maxlength="8" pattern="[0-9]{8}" required>
-                            <small class="form-text text-muted">Enter your 8-digit numeric Voter ID</small>
+                                   placeholder="SLGS-001" maxlength="20" pattern="[A-Za-z0-9\-]{3,20}" required>
+                            <small class="form-text text-muted">Enter your Voter ID (same as your Member ID)</small>
                         </div>
 
                         <!-- Voting Token Input -->
@@ -122,10 +122,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Validate Voter ID input
+    // Validate Voter ID input (now accepts alphanumeric with dashes)
     voterIdInput.addEventListener('input', function() {
-        this.value = this.value.replace(/[^0-9]/g, ''); // Only allow numbers
-        if (this.value.length === 8) {
+        this.value = this.value.replace(/[^A-Za-z0-9\-]/g, ''); // Only allow alphanumeric and dashes
+        if (this.value.length >= 3 && this.value.length <= 20) {
             this.classList.add('is-valid');
         } else {
             this.classList.remove('is-valid');
@@ -148,9 +148,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const voterId = document.getElementById('voterId').value;
         const votingToken = document.getElementById('votingToken').value;
 
-        if (voterId.length !== 8) {
+        if (voterId.length < 3 || voterId.length > 20) {
             e.preventDefault();
-            alert('Please enter a valid 8-digit Voter ID.');
+            alert('Please enter a valid Voter ID (3-20 characters, alphanumeric and dashes only).');
             voterIdInput.focus();
             return false;
         }

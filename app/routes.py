@@ -105,10 +105,10 @@ def vote():
             flash('Please enter your Voting Token.', 'error')
             return redirect(url_for('main.vote'))
 
-        # Validate Voter ID format (must be exactly 8 digits)
-        if not (voter_id.isdigit() and len(voter_id) == 8):
+        # Validate Voter ID format (now accepts alphanumeric with dashes, 3-20 characters)
+        if not (len(voter_id) >= 3 and len(voter_id) <= 20 and all(c.isalnum() or c == '-' for c in voter_id)):
             print(f"VOTE REJECTED - Invalid Voter ID format: {voter_id}")
-            flash('Voter ID must be exactly 8 digits.', 'error')
+            flash('Voter ID must be 3-20 characters (alphanumeric and dashes only).', 'error')
             return redirect(url_for('main.vote'))
 
         # Validate Voting Token format (must be exactly 16 alphanumeric characters)
