@@ -498,21 +498,17 @@ def upload_voters():
         invalid_rows = 0
 
         for row in csv_input:
-            if len(row) >= 4:
-                member_id, full_name, phone_number, voting_token = row[:4]
+            # Support both 3-column (without voting token) and 4-column (with voting token) format
+            if len(row) >= 3:
+                member_id, full_name, phone_number = row[:3]
 
-                # Validate data
-                if not member_id or not full_name or not phone_number or not voting_token:
+                # Validate required data
+                if not member_id or not full_name or not phone_number:
                     invalid_rows += 1
                     continue
 
                 # Basic phone number validation (should contain digits)
                 if not any(char.isdigit() for char in phone_number):
-                    invalid_rows += 1
-                    continue
-
-                # Voting token validation (should be 16 alphanumeric characters)
-                if not (voting_token.isalnum() and len(voting_token) == 16):
                     invalid_rows += 1
                     continue
 
@@ -523,21 +519,22 @@ def upload_voters():
                     voters_skipped += 1
                     continue
 
-                # Check if voting token already exists (if column exists)
-                try:
-                    existing_token = Voter.query.filter_by(voting_token=voting_token).first()
-                    if existing_token:
-                        invalid_rows += 1
-                        continue
-                except Exception:
-                    # voting_token column doesn't exist, skip this check
-                    print("Warning: voting_token column missing, skipping duplicate token check")
+                # Generate voting token automatically if not provided in CSV
+                voting_token = None
+                if len(row) >= 4 and row[3].strip():
+                    # Use provided voting token if valid
+                    provided_token = row[3].strip()
+                    if provided_token.isalnum() and len(provided_token) == 16:
+                        voting_token = provided_token
+                    else:
+                        print(f"Invalid voting token format for {member_id}, generating new one")
+                        voting_token = None
 
                 voter = Voter(
                     member_id=member_id,
                     full_name=full_name,
                     phone_number=phone_number.strip(),
-                    voting_token=voting_token.strip()
+                    voting_token=voting_token  # Will be auto-generated if None
                 )
                 voter.generate_voter_id()
                 db.session.add(voter)
