@@ -536,6 +536,11 @@ def upload_voters():
                     phone_number=phone_number.strip(),
                     voting_token=voting_token  # Will be auto-generated if None
                 )
+
+                # Generate credentials
+                voter.generate_voter_id()  # Will use MemberID as VoterID if unique
+                if not voter.voting_token:
+                    voter.generate_voting_token()  # Generate voting token if not provided
                 voter.generate_voter_id()
                 db.session.add(voter)
                 voters_added += 1

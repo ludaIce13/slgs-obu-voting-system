@@ -14,7 +14,14 @@ class Voter(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def generate_voter_id(self):
-        """Generate a unique 8-digit numeric voter ID"""
+        """Generate a unique 8-digit numeric voter ID (same as MemberID if not already taken)"""
+        # First try to use MemberID as VoterID if it's not already taken
+        if hasattr(self, 'member_id') and self.member_id:
+            if not Voter.query.filter_by(voter_id=self.member_id).first():
+                self.voter_id = self.member_id
+                return
+
+        # Fallback to random generation if MemberID is already used or not available
         while True:
             # Generate 8-digit numeric ID
             voter_id = ''.join(secrets.choice(string.digits) for _ in range(8))
