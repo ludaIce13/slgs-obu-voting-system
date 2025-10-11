@@ -14,17 +14,33 @@ class Voter(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def generate_voter_id(self):
-        """Generate a unique 8-digit numeric voter ID (same as MemberID if not already taken)"""
+        """Generate a unique voter ID with OBUSLG prefix (same as MemberID if not already taken)"""
         # First try to use MemberID as VoterID if it's not already taken
         if hasattr(self, 'member_id') and self.member_id:
             if not Voter.query.filter_by(voter_id=self.member_id).first():
                 self.voter_id = self.member_id
                 return
 
-        # Fallback to random generation if MemberID is already used or not available
+        # Fallback to OBUSLG prefix with sequential number if MemberID is already used or not available
         while True:
-            # Generate 8-digit numeric ID
-            voter_id = ''.join(secrets.choice(string.digits) for _ in range(8))
+            # Find the highest existing OBUSLG number to continue sequentially
+            existing_obuslg = Voter.query.filter(Voter.voter_id.like('OBUSLG%')).all()
+            if existing_obuslg:
+                # Extract numbers from existing OBUSLG IDs and find the highest
+                max_number = 0
+                for voter in existing_obuslg:
+                    try:
+                        number = int(voter.voter_id[6:])  # Extract number after 'OBUSLG'
+                        max_number = max(max_number, number)
+                    except (ValueError, IndexError):
+                        continue
+                next_number = max_number + 1
+            else:
+                next_number = 1
+
+            # Generate OBUSLG ID with 3-digit padding
+            voter_id = f'OBUSLG{next_number:03d}'
+
             # Check if it already exists
             if not Voter.query.filter_by(voter_id=voter_id).first():
                 self.voter_id = voter_id

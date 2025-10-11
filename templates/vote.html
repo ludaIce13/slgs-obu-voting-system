@@ -29,8 +29,8 @@
                         <div class="mb-3">
                             <label for="voterId" class="form-label">Voter ID</label>
                             <input type="text" class="form-control text-center" name="voter_id" id="voterId"
-                                   placeholder="SLGS-001" maxlength="20" pattern="[A-Za-z0-9\-]{3,20}" required>
-                            <small class="form-text text-muted">Enter your Voter ID (same as your Member ID)</small>
+                                   placeholder="OBUSLG001" maxlength="20" pattern="[A-Za-z0-9\-]{3,20}" required>
+                            <small class="form-text text-muted">Enter your Voter ID (format: OBUSLG001)</small>
                         </div>
 
                         <!-- Voting Token Input -->
@@ -150,7 +150,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (voterId.length < 3 || voterId.length > 20) {
             e.preventDefault();
-            alert('Please enter a valid Voter ID (3-20 characters, alphanumeric and dashes only).');
+            alert('Please enter a valid Voter ID (3-20 characters, alphanumeric and dashes only, e.g., OBUSLG001).');
             voterIdInput.focus();
             return false;
         }
