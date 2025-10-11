@@ -330,10 +330,12 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
 
         const formData = new FormData(this);
+        // Use the same token format as the backend expects
+        const adminToken = localStorage.getItem('adminToken') || 'admin-token';
         const response = await fetch('/admin/upload-voters', {
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                'Authorization': 'Bearer ' + adminToken
             },
             body: formData
         });
@@ -353,10 +355,11 @@ async function generateVoterIds() {
         return;
     }
 
+    const adminToken = localStorage.getItem('adminToken') || 'admin-token';
     const response = await fetch('/admin/generate-ids', {
         method: 'POST',
         headers: {
-            'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+            'Authorization': 'Bearer ' + adminToken
         }
     });
 
@@ -371,9 +374,10 @@ async function generateVoterIds() {
 
 async function exportResults() {
     try {
+        const adminToken = localStorage.getItem('adminToken') || 'admin-token';
         const response = await fetch('/admin/export-results', {
             headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                'Authorization': 'Bearer ' + adminToken
             }
         });
 
@@ -417,10 +421,11 @@ function resetToken() {
 
 async function clearAllData() {
     if (confirm('Clear ALL voters, votes, and candidates? This will reset the entire system and cannot be undone!')) {
+        const adminToken = localStorage.getItem('adminToken') || 'admin-token';
         const response = await fetch('/admin/clear-all-data', {
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                'Authorization': 'Bearer ' + adminToken
             }
         });
 
@@ -436,10 +441,11 @@ async function clearAllData() {
 
 async function createPositions() {
     if (confirm('Create all SLGS OBU positions if they are missing?')) {
+        const adminToken = localStorage.getItem('adminToken') || 'admin-token';
         const response = await fetch('/admin/create-positions', {
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                'Authorization': 'Bearer ' + adminToken
             }
         });
 
@@ -461,10 +467,11 @@ async function createPositionsFromBtn() {
         debugText.textContent = 'Creating positions...';
         debugOutput.style.display = 'block';
 
+        const adminToken = localStorage.getItem('adminToken') || 'admin-token';
         const response = await fetch('/admin/create-positions', {
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                'Authorization': 'Bearer ' + adminToken
             }
         });
 
@@ -491,10 +498,11 @@ async function checkPositionsFromBtn() {
         debugText.textContent = 'Checking positions...';
         debugOutput.style.display = 'block';
 
+        const adminToken = localStorage.getItem('adminToken') || 'admin-token';
         const response = await fetch('/admin/check-positions', {
             method: 'GET',
             headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                'Authorization': 'Bearer ' + adminToken
             }
         });
 
@@ -526,10 +534,11 @@ async function fixDatabaseFromBtn() {
         debugText.textContent = '🔧 Fixing database schema...';
         debugOutput.style.display = 'block';
 
+        const adminToken = localStorage.getItem('adminToken') || 'admin-token';
         const response = await fetch('/admin/fix-database', {
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                'Authorization': 'Bearer ' + adminToken
             }
         });
 
@@ -630,11 +639,12 @@ async function fetchVotingStatus() {
 
 async function openVoting() {
     const minutes = parseInt(document.getElementById('votingMinutes').value) || 0;
+    const adminToken = localStorage.getItem('adminToken') || 'admin-token';
     const res = await fetch('/admin/voting-control', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+            'Authorization': 'Bearer ' + adminToken
         },
         body: JSON.stringify({ action: 'open', minutes })
     });
@@ -648,11 +658,12 @@ async function openVoting() {
 }
 
 async function closeVoting() {
+    const adminToken = localStorage.getItem('adminToken') || 'admin-token';
     const res = await fetch('/admin/voting-control', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+            'Authorization': 'Bearer ' + adminToken
         },
         body: JSON.stringify({ action: 'close' })
     });
@@ -693,16 +704,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Candidate management JS
 function _authHeaders() {
+    const adminToken = localStorage.getItem('adminToken') || 'admin-token';
     return {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+        'Authorization': 'Bearer ' + adminToken
     };
 }
 
 async function initCandidateManagement() {
     document.getElementById('saveCandidateBtn').addEventListener('click', saveCandidate);
     // Fetch positions (admin-only endpoint) then load candidates
-    const posRes = await fetch('/admin/positions', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('adminToken') } });
+    const adminToken = localStorage.getItem('adminToken') || 'admin-token';
+    const posRes = await fetch('/admin/positions', { headers: { 'Authorization': 'Bearer ' + adminToken } });
     if (posRes.ok) {
         POSITIONS = await posRes.json();
     } else {
@@ -753,7 +766,8 @@ function toggleEditTable(posId) {
 
 async function loadCandidates(posId) {
     // If posId provided, only refresh that position table; otherwise refresh all
-    const res = await fetch('/admin/candidates', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('adminToken') } });
+    const adminToken = localStorage.getItem('adminToken') || 'admin-token';
+    const res = await fetch('/admin/candidates', { headers: { 'Authorization': 'Bearer ' + adminToken } });
     if (!res.ok) return;
     const list = await res.json();
 
@@ -819,7 +833,8 @@ function openCandidateModalForPosition(posId, posName) {
 }
 
 async function editCandidate(id) {
-    const res = await fetch('/admin/candidates', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('adminToken') } });
+    const adminToken = localStorage.getItem('adminToken') || 'admin-token';
+    const res = await fetch('/admin/candidates', { headers: { 'Authorization': 'Bearer ' + adminToken } });
     if (!res.ok) return;
     const list = await res.json();
     const cand = list.find(x => x.id === id);
@@ -847,11 +862,12 @@ async function saveCandidate() {
         // Include URL as fallback
         if (photoUrl) formData.append('photo_url', photoUrl);
 
+        const adminToken = localStorage.getItem('adminToken') || 'admin-token';
         if (id) {
             res = await fetch('/admin/candidates/' + id, {
                 method: 'PUT',
                 headers: {
-                    'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                    'Authorization': 'Bearer ' + adminToken
                 },
                 body: formData
             });
@@ -859,7 +875,7 @@ async function saveCandidate() {
             res = await fetch('/admin/candidates', {
                 method: 'POST',
                 headers: {
-                    'Authorization': 'Bearer ' + localStorage.getItem('adminToken')
+                    'Authorization': 'Bearer ' + adminToken
                 },
                 body: formData
             });
@@ -894,9 +910,13 @@ async function saveCandidate() {
 
 async function deleteCandidate(id) {
     if (!confirm('Delete candidate #' + id + '?')) return;
+    const adminToken = localStorage.getItem('adminToken') || 'admin-token';
     const res = await fetch('/admin/candidates/' + id, {
         method: 'DELETE',
-        headers: _authHeaders()
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + adminToken
+        }
     });
     if (res.ok) {
         alert('Deleted');
