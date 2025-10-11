@@ -901,17 +901,17 @@ def clear_all_data():
         return jsonify({'error': 'Unauthorized'}), 401
 
     try:
-        # Clear all voters
-        voters_cleared = Voter.query.count()
-        Voter.query.delete()
-
-        # Clear all votes
+        # Clear votes first (due to foreign key constraints)
         votes_cleared = Vote.query.count()
         Vote.query.delete()
 
         # Clear all candidates
         candidates_cleared = Candidate.query.count()
         Candidate.query.delete()
+
+        # Clear all voters (now that votes are cleared)
+        voters_cleared = Voter.query.count()
+        Voter.query.delete()
 
         # Reset voting status
         voting_setting = Setting.query.filter_by(key='voting_open').first()
