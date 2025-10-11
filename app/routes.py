@@ -111,10 +111,10 @@ def vote():
             flash('Voter ID must be 3-20 characters (alphanumeric and dashes only).', 'error')
             return redirect(url_for('main.vote'))
 
-        # Validate Voting Token format (must be exactly 16 alphanumeric characters)
-        if not (voting_token.isalnum() and len(voting_token) == 16):
+        # Validate Voting Token format (must be exactly 8 digits)
+        if not (voting_token.isdigit() and len(voting_token) == 8):
             print(f"VOTE REJECTED - Invalid Voting Token format: {voting_token}")
-            flash('Voting Token must be exactly 16 alphanumeric characters.', 'error')
+            flash('Voting Token must be exactly 8 digits.', 'error')
             return redirect(url_for('main.vote'))
 
         # Find voter by both Voter ID and Voting Token
@@ -524,7 +524,7 @@ def upload_voters():
                 if len(row) >= 4 and row[3].strip():
                     # Use provided voting token if valid
                     provided_token = row[3].strip()
-                    if provided_token.isalnum() and len(provided_token) == 16:
+                    if provided_token.isdigit() and len(provided_token) == 8:
                         voting_token = provided_token
                     else:
                         print(f"Invalid voting token format for {member_id}, generating new one")

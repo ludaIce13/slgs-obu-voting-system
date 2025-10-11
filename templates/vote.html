@@ -4,7 +4,7 @@
 <div class="voting-container">
     <div class="text-center mb-4">
         <h2>SLGS OBU General Election Voting</h2>
-        <p class="text-info">Enter your Voter ID (same as your Member ID) and 16-character Voting Token to cast your votes</p>
+        <p class="text-info">Enter your Voter ID (same as your Member ID) and 8-digit Voting Token to cast your votes</p>
         <div class="alert alert-warning">
             <strong>Security Notice:</strong> You need both your Voter ID and Voting Token to vote.
             These were provided to you by the election administrators. Invalid credentials will be rejected.
@@ -37,8 +37,8 @@
                         <div class="mb-3">
                             <label for="votingToken" class="form-label">Voting Token</label>
                             <input type="text" class="form-control text-center" name="voting_token" id="votingToken"
-                                   placeholder="ABC123DEF456GHIJ" maxlength="16" pattern="[A-Za-z0-9]{16}" required>
-                            <small class="form-text text-muted">Enter your 16-character alphanumeric Voting Token</small>
+                                   placeholder="12345678" maxlength="8" pattern="[0-9]{8}" required>
+                            <small class="form-text text-muted">Enter your 8-digit numeric Voting Token</small>
                         </div>
                     </div>
                 </div>
@@ -135,8 +135,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Validate Voting Token input
     const votingTokenInput = document.getElementById('votingToken');
     votingTokenInput.addEventListener('input', function() {
-        this.value = this.value.replace(/[^A-Za-z0-9]/g, ''); // Only allow alphanumeric
-        if (this.value.length === 16) {
+        this.value = this.value.replace(/[^0-9]/g, ''); // Only allow numbers
+        if (this.value.length === 8) {
             this.classList.add('is-valid');
         } else {
             this.classList.remove('is-valid');
@@ -155,9 +155,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
         }
 
-        if (votingToken.length !== 16) {
+        if (votingToken.length !== 8) {
             e.preventDefault();
-            alert('Please enter a valid 16-character Voting Token.');
+            alert('Please enter a valid 8-digit Voting Token.');
             votingTokenInput.focus();
             return false;
         }
