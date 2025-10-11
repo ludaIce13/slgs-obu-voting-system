@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12 text-center">
+            <h1 class="display-4">SLGS OBU General Election</h1>
+            <p class="lead">Live Election Results Dashboard</p>
+            <div class="alert alert-info">
+                <strong>🔴 Live Updates:</strong> This dashboard shows real-time voting results as they come in.
+                <span class="ms-3" id="lastUpdated">Last updated: Just now</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-5">
+        <div class="col-md-4 mb-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Total Voters</h5>
+                    <h2 class="display-4">{{ total_voters }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Votes Cast</h5>
+                    <h2 class="display-4">{{ voted_count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Turnout</h5>
+                    <h2 class="display-4">{{ "%.1f"|format((voted_count/total_voters)*100) if total_voters > 0 else 0 }}%</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vote Counts by Position -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">Live Vote Counts by Position</h3>
+                </div>
+                <div class="card-body">
+                    {% for position in positions %}
+                    <div class="position-section mb-5">
+                        <h4 class="text-primary mb-4">{{ position.name }}</h4>
+                        {% if position.description %}
+                        <p class="text-muted mb-3">{{ position.description }}</p>
+                        {% endif %}
+
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Candidate</th>
+                                        <th>Votes</th>
+                                        <th>Percentage</th>
+                                        <th>Progress Bar</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for candidate in position.candidates %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ candidate.name }}</strong>
+                                            {% if candidate.bio %}
+                                            <br><small class="text-muted">{{ candidate.bio[:80] }}{% if candidate.bio|length > 80 %}...{% endif %}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-primary fs-6">{{ position_results[position.name][candidate.name] if position_results[position.name] else 0 }}</span>
+                                        </td>
+                                        <td>
+                                            {% set candidate_votes = position_results[position.name][candidate.name] if position_results[position.name] else 0 %}
+                                            {% set total_position_votes = position_results[position.name]|sum if position_results[position.name] else 0 %}
+                                            <span class="badge bg-secondary">{{ "%.1f"|format((candidate_votes/total_position_votes)*100) if total_position_votes > 0 else 0 }}%</span>
+                                        </td>
+                                        <td>
+                                            <div class="progress" style="height: 20px;">
+                                                {% set percentage = (candidate_votes/total_position_votes)*100 if total_position_votes > 0 else 0 %}
+                                                <div class="progress-bar bg-info" role="progressbar"
+                                                     style="width: {{ percentage }}%"
+                                                     aria-valuenow="{{ percentage }}"
+                                                     aria-valuemin="0"
+                                                     aria-valuemax="100">
+                                                    {{ "%.1f"|format(percentage) }}%
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="row mt-5">
+        <div class="col-12 text-center">
+            <div class="alert alert-warning">
+                <strong>📊 Transparency:</strong> This dashboard shows live, anonymous voting results.
+                Individual voter choices cannot be traced. Results update automatically as votes are cast.
+            </div>
+            <p class="text-muted">
+                <small>For questions about the election process, contact the SLGS OBU Election Committee.</small>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-refresh the dashboard every 30 seconds
+document.addEventListener('DOMContentLoaded', function() {
+    function updateTimestamp() {
+        const now = new Date();
+        document.getElementById('lastUpdated').textContent = 'Last updated: ' + now.toLocaleTimeString();
+    }
+
+    // Update timestamp every 30 seconds
+    setInterval(updateTimestamp, 30000);
+
+    // Optional: Auto-refresh the entire page every 60 seconds
+    // Uncomment the next line if you want full auto-refresh
+    // setInterval(() => location.reload(), 60000);
+});
+</script>
+
+<style>
+.position-section {
+    border-left: 4px solid #007bff;
+    padding-left: 15px;
+    margin-bottom: 30px;
+}
+
+.card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: none;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+}
+
+.progress {
+    border-radius: 10px;
+}
+
+.badge {
+    font-size: 0.9em;
+}
+</style>
+{% endblock %}

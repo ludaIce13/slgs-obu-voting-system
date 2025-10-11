@@ -353,13 +353,43 @@ def admin_debug():
     print(f"DEBUG ENDPOINT - Voters: {total_voters}, Positions: {len(positions)}")
 
     return render_template('admin.html',
-                            total_voters=total_voters,
-                            voted_count=voted_count,
-                            positions=positions,
-                            candidates=candidates,
-                            voters=voters,
-                            position_results=position_results,
-                            auth_ok=True)
+                             total_voters=total_voters,
+                             voted_count=voted_count,
+                             positions=positions,
+                             candidates=candidates,
+                             voters=voters,
+                             position_results=position_results,
+                             auth_ok=True)
+
+
+@main.route('/dashboard')
+def public_dashboard():
+    """Public election dashboard showing live results"""
+    try:
+        # Get voter statistics
+        total_voters = Voter.query.count()
+        voted_count = Voter.query.filter_by(has_voted=True).count()
+
+        # Get positions and vote counts
+        positions = Position.query.all()
+        position_results = {}
+
+        for position in positions:
+            position_results[position.name] = {}
+            for candidate in position.candidates:
+                vote_count = Vote.query.filter_by(position_id=position.id, candidate_id=candidate.id).count()
+                position_results[position.name][candidate.name] = vote_count
+
+        return render_template('dashboard.html',
+                             total_voters=total_voters,
+                             voted_count=voted_count,
+                             positions=positions,
+                             position_results=position_results)
+
+    except Exception as e:
+        print(f"Error loading public dashboard: {e}")
+        # Return a simple error page instead of crashing
+        return f"<h1>Error loading dashboard</h1><p>Please contact the administrator. Error: {str(e)}</p>", 500
 
 
 # Voting control endpoints
