@@ -8,7 +8,7 @@ class Voter(db.Model):
     member_id = db.Column(db.String(50), unique=True, nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
     phone_number = db.Column(db.String(20), nullable=False)
-    voter_id = db.Column(db.String(8), unique=True, nullable=False)
+    voter_id = db.Column(db.String(20), unique=True, nullable=False)  # Increased from 8 to 20 to accommodate longer MemberIDs
     voting_token = db.Column(db.String(8), unique=True, nullable=False)
     has_voted = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
