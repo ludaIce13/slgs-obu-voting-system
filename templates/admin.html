@@ -123,8 +123,8 @@
                             </button>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <button class="btn btn-danger w-100" onclick="clearAllVoters()">
-                                Clear All Voters
+                            <button class="btn btn-danger w-100" onclick="clearAllData()">
+                                Clear All Data
                             </button>
                         </div>
                         <div class="col-md-4 mb-3">
@@ -408,9 +408,9 @@ function resetToken() {
     }
 }
 
-async function clearAllVoters() {
-    if (confirm('Clear ALL voters from the database? This cannot be undone!')) {
-        const response = await fetch('/admin/clear-voters', {
+async function clearAllData() {
+    if (confirm('Clear ALL voters, votes, and candidates? This will reset the entire system and cannot be undone!')) {
+        const response = await fetch('/admin/clear-all-data', {
             method: 'POST',
             headers: {
                 'Authorization': 'Bearer ' + localStorage.getItem('adminToken')

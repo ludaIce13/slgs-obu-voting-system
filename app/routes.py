@@ -867,7 +867,7 @@ def fix_database():
             except Exception:
                 # Column doesn't exist, add it
                 try:
-                    conn.execute(db.text("ALTER TABLE voter ADD COLUMN voting_token VARCHAR(16) UNIQUE"))
+                    conn.execute(db.text("ALTER TABLE voter ADD COLUMN voting_token VARCHAR(8) UNIQUE"))
                     conn.commit()
                     print("Successfully added voting_token column")
 
@@ -881,7 +881,7 @@ def fix_database():
                     # Try to rollback and retry once
                     try:
                         conn.execute(db.text("ROLLBACK"))
-                        conn.execute(db.text("ALTER TABLE voter ADD COLUMN voting_token VARCHAR(16) UNIQUE"))
+                        conn.execute(db.text("ALTER TABLE voter ADD COLUMN voting_token VARCHAR(8) UNIQUE"))
                         conn.commit()
 
                         # Final verification
@@ -891,4 +891,43 @@ def fix_database():
                         return jsonify({'error': f'Failed to add column after retry: {str(retry_error)}'}), 500
 
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@admin.route('/clear-all-data', methods=['POST'])
+def clear_all_data():
+    """Clear all voters and reset the system"""
+    if not _is_admin_req(request):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        # Clear all voters
+        voters_cleared = Voter.query.count()
+        Voter.query.delete()
+
+        # Clear all votes
+        votes_cleared = Vote.query.count()
+        Vote.query.delete()
+
+        # Clear all candidates
+        candidates_cleared = Candidate.query.count()
+        Candidate.query.delete()
+
+        # Reset voting status
+        voting_setting = Setting.query.filter_by(key='voting_open').first()
+        if voting_setting:
+            voting_setting.value = 'false'
+
+        until_setting = Setting.query.filter_by(key='voting_until').first()
+        if until_setting:
+            db.session.delete(until_setting)
+
+        db.session.commit()
+
+        return jsonify({
+            'message': f'System reset successful: {voters_cleared} voters, {votes_cleared} votes, and {candidates_cleared} candidates cleared'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500
