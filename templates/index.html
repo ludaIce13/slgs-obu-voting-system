@@ -27,7 +27,7 @@
                     <small id="votingUntilText" class="ms-2 text-muted"></small>
                 </div>
 
-                <a href="/vote" id="startVotingBtn" class="btn btn-success btn-lg">Start Voting</a>
+                <a href="/vote" id="startVotingBtn" class="btn btn-lg" style="background: linear-gradient(135deg, #f3e5f5, #ce93d8); color: #333; border: none;">Start Voting</a>
                 <p class="mb-3 mt-3">Questions? Contact the election committee for assistance.</p>
             </div>
         </div>
@@ -44,17 +44,21 @@ async function updateVotingStatus() {
         const untilText = document.getElementById('votingUntilText');
         const startBtn = document.getElementById('startVotingBtn');
         if (data.voting_open) {
-            badge.textContent = 'Voting OPEN';
-            badge.className = 'badge bg-success';
-            startBtn.classList.remove('disabled');
-            startBtn.href = '/vote';
-        } else {
-            badge.textContent = 'Voting CLOSED';
-            badge.className = 'badge bg-danger';
-            // disable the link when closed
-            startBtn.classList.add('disabled');
-            startBtn.removeAttribute('href');
-        }
+             badge.textContent = 'Voting OPEN';
+             badge.className = 'badge';
+             badge.style.background = 'linear-gradient(135deg, #a5d6a7, #81c784)';
+             badge.style.color = '#333';
+             startBtn.classList.remove('disabled');
+             startBtn.href = '/vote';
+         } else {
+             badge.textContent = 'Voting CLOSED';
+             badge.className = 'badge';
+             badge.style.background = 'linear-gradient(135deg, #ffcdd2, #f8bbd9)';
+             badge.style.color = '#333';
+             // disable the link when closed
+             startBtn.classList.add('disabled');
+             startBtn.removeAttribute('href');
+         }
         if (data.voting_until) {
             untilText.textContent = 'Until: ' + new Date(data.voting_until).toLocaleString();
         } else {

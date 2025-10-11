@@ -5,7 +5,7 @@
 <!-- Public Election Dashboard Link -->
 <div class="alert alert-info">
     <strong>📊 Public Dashboard:</strong>
-    <a href="/dashboard" class="btn btn-outline-primary btn-sm">View Public Election Dashboard</a>
+    <a href="/dashboard" class="btn btn-sm" style="background: linear-gradient(135deg, #e8eaf6, #c5cae9); color: #333; border: 1px solid #ce93d8;">View Public Election Dashboard</a>
     Share this link with voters to show live results: <code>{{ request.host_url }}dashboard</code>
 </div>
 <div class="admin-header">
@@ -17,9 +17,9 @@
                 <small class="text-warning">
                     🔐 Admin Token: <span id="tokenStatus">Checking...</span>
                     {% if auth_ok %}
-                        <span class="badge bg-success">✓ Authorized</span>
+                        <span class="badge" style="background: linear-gradient(135deg, #a5d6a7, #81c784); color: #333;">✓ Authorized</span>
                     {% else %}
-                        <span class="badge bg-danger">✗ Unauthorized</span>
+                        <span class="badge" style="background: linear-gradient(135deg, #ffcdd2, #f8bbd9); color: #333;">✗ Unauthorized</span>
                     {% endif %}
                 </small>
             </div>
@@ -33,7 +33,7 @@
             <div class="card">
                 <div class="card-body text-center">
                     <h5 class="card-title">Total Voters</h5>
-                    <h2 class="text-primary">{{ total_voters }}</h2>
+                    <h2 style="color: #ce93d8;">{{ total_voters }}</h2>
                 </div>
             </div>
         </div>
@@ -41,7 +41,7 @@
             <div class="card">
                 <div class="card-body text-center">
                     <h5 class="card-title">Votes Cast</h5>
-                    <h2 class="text-success">{{ voted_count }}</h2>
+                    <h2 style="color: #81c784;">{{ voted_count }}</h2>
                 </div>
             </div>
         </div>
@@ -49,7 +49,7 @@
             <div class="card">
                 <div class="card-body text-center">
                     <h5 class="card-title">Turnout</h5>
-                    <h2 class="text-info">{{ "%.1f"|format((voted_count/total_voters)*100) if total_voters > 0 else 0 }}%</h2>
+                    <h2 style="color: #a5d6a7;">{{ "%.1f"|format((voted_count/total_voters)*100) if total_voters > 0 else 0 }}%</h2>
                 </div>
             </div>
         </div>
@@ -101,8 +101,8 @@
                         <div class="col-md-12 mb-3">
                             <div class="d-flex gap-2">
                                 <input type="number" min="0" id="votingMinutes" class="form-control" placeholder="Minutes (optional)">
-                                <button class="btn btn-outline-success" id="openVotingBtn">Open Voting</button>
-                                <button class="btn btn-outline-danger" id="closeVotingBtn">Close Voting</button>
+                                <button class="btn" id="openVotingBtn" style="background: linear-gradient(135deg, #a5d6a7, #81c784); color: #333; border: none;">Open Voting</button>
+                                <button class="btn" id="closeVotingBtn" style="background: linear-gradient(135deg, #ffcdd2, #f8bbd9); color: #333; border: none;">Close Voting</button>
                                 <div class="ms-auto align-self-center">
                                     <span id="votingStatusBadge" class="badge bg-secondary">Checking...</span>
                                     <small id="votingUntilText" class="ms-2 text-muted"></small>
@@ -110,32 +110,32 @@
                             </div>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <button class="btn btn-primary w-100" onclick="generateVoterIds()">
+                            <button class="btn w-100" onclick="generateVoterIds()" style="background: linear-gradient(135deg, #e8eaf6, #c5cae9); color: #333; border: none;">
                                 Generate Voter IDs
                             </button>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <button class="btn btn-success w-100" onclick="exportResults()">
+                            <button class="btn w-100" onclick="exportResults()" style="background: linear-gradient(135deg, #f3e5f5, #ce93d8); color: #333; border: none;">
                                 Export Results
                             </button>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <button class="btn btn-warning w-100" onclick="refreshData()">
+                            <button class="btn w-100" onclick="refreshData()" style="background: linear-gradient(135deg, #e0f2f1, #a5d6a7); color: #333; border: none;">
                                 Refresh Data
                             </button>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <button class="btn btn-info w-100" onclick="resetToken()">
+                            <button class="btn w-100" onclick="resetToken()" style="background: linear-gradient(135deg, #e0f2f1, #a5d6a7); color: #333; border: none;">
                                 Reset Admin Token
                             </button>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <button class="btn btn-danger w-100" onclick="clearAllData()">
+                            <button class="btn w-100" onclick="clearAllData()" style="background: linear-gradient(135deg, #ffcdd2, #f8bbd9); color: #333; border: none;">
                                 Clear All Data
                             </button>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <button class="btn btn-secondary w-100" onclick="createPositions()">
+                            <button class="btn w-100" onclick="createPositions()" style="background: linear-gradient(135deg, #e0f2f1, #a5d6a7); color: #333; border: none;">
                                 Create Positions
                             </button>
                         </div>
@@ -160,7 +160,7 @@
                                 CSV format: MemberID, FullName, PhoneNumber (VotingToken will be auto-generated as 8-digit code)
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-primary">Upload Voters</button>
+                        <button type="submit" class="btn" style="background: linear-gradient(135deg, #e8eaf6, #c5cae9); color: #333; border: none;">Upload Voters</button>
                     </form>
                 </div>
             </div>
@@ -196,9 +196,9 @@
                                     <td><code>{{ voter.voting_token }}</code></td>
                                     <td>
                                         {% if voter.has_voted %}
-                                            <span class="badge bg-success">Voted</span>
+                                            <span class="badge" style="background: linear-gradient(135deg, #a5d6a7, #81c784); color: #333;">Voted</span>
                                         {% else %}
-                                            <span class="badge bg-warning">Not Voted</span>
+                                            <span class="badge" style="background: linear-gradient(135deg, #e0f2f1, #a5d6a7); color: #333;">Not Voted</span>
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -228,9 +228,9 @@
                 </div>
                 <div class="card-body">
                     <div class="d-flex gap-2 mb-3">
-                        <button id="createPositionsBtn" class="btn btn-warning btn-sm">Create Positions</button>
-                        <button id="checkPositionsBtn" class="btn btn-info btn-sm">Check Positions</button>
-                        <button id="fixDatabaseBtn" class="btn btn-danger btn-sm">Fix Database</button>
+                        <button id="createPositionsBtn" class="btn btn-sm" style="background: linear-gradient(135deg, #e0f2f1, #a5d6a7); color: #333; border: none;">Create Positions</button>
+                        <button id="checkPositionsBtn" class="btn btn-sm" style="background: linear-gradient(135deg, #e0f2f1, #a5d6a7); color: #333; border: none;">Check Positions</button>
+                        <button id="fixDatabaseBtn" class="btn btn-sm" style="background: linear-gradient(135deg, #ffcdd2, #f8bbd9); color: #333; border: none;">Fix Database</button>
                     </div>
                     <div id="debugOutput" class="alert alert-secondary" style="display: none;">
                         <small id="debugText"></small>
@@ -316,8 +316,8 @@
             </form>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="button" class="btn btn-primary" id="saveCandidateBtn">Save</button>
+            <button type="button" class="btn" data-bs-dismiss="modal" style="background: linear-gradient(135deg, #e0f2f1, #a5d6a7); color: #333; border: none;">Cancel</button>
+            <button type="button" class="btn" id="saveCandidateBtn" style="background: linear-gradient(135deg, #e8eaf6, #c5cae9); color: #333; border: none;">Save</button>
           </div>
         </div>
       </div>
@@ -608,12 +608,16 @@ async function fetchVotingStatus() {
         const badge = document.getElementById('votingStatusBadge');
         const untilText = document.getElementById('votingUntilText');
         if (data.voting_open) {
-            badge.textContent = 'OPEN';
-            badge.className = 'badge bg-success';
-        } else {
-            badge.textContent = 'CLOSED';
-            badge.className = 'badge bg-danger';
-        }
+             badge.textContent = 'OPEN';
+             badge.className = 'badge';
+             badge.style.background = 'linear-gradient(135deg, #a5d6a7, #81c784)';
+             badge.style.color = '#333';
+         } else {
+             badge.textContent = 'CLOSED';
+             badge.className = 'badge';
+             badge.style.background = 'linear-gradient(135deg, #ffcdd2, #f8bbd9)';
+             badge.style.color = '#333';
+         }
         if (data.voting_until) {
             untilText.textContent = 'Until: ' + new Date(data.voting_until).toLocaleString();
         } else {

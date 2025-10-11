@@ -17,7 +17,7 @@
     <!-- Statistics Cards -->
     <div class="row mb-5">
         <div class="col-md-4 mb-4">
-            <div class="card bg-primary text-white">
+            <div class="card" style="background: linear-gradient(135deg, #e8eaf6, #c5cae9); color: #333;">
                 <div class="card-body text-center">
                     <h5 class="card-title">Total Voters</h5>
                     <h2 class="display-4">{{ total_voters }}</h2>
@@ -25,7 +25,7 @@
             </div>
         </div>
         <div class="col-md-4 mb-4">
-            <div class="card bg-success text-white">
+            <div class="card" style="background: linear-gradient(135deg, #f3e5f5, #ce93d8); color: #333;">
                 <div class="card-body text-center">
                     <h5 class="card-title">Votes Cast</h5>
                     <h2 class="display-4">{{ voted_count }}</h2>
@@ -33,7 +33,7 @@
             </div>
         </div>
         <div class="col-md-4 mb-4">
-            <div class="card bg-info text-white">
+            <div class="card" style="background: linear-gradient(135deg, #e0f2f1, #a5d6a7); color: #333;">
                 <div class="card-body text-center">
                     <h5 class="card-title">Turnout</h5>
                     <h2 class="display-4">{{ "%.1f"|format((voted_count/total_voters)*100) if total_voters > 0 else 0 }}%</h2>
@@ -87,7 +87,7 @@
                                         <td>
                                             <div class="progress" style="height: 20px;">
                                                 {% set percentage = (candidate_votes/total_position_votes)*100 if total_position_votes > 0 else 0 %}
-                                                <div class="progress-bar bg-info" role="progressbar"
+                                                <div class="progress-bar progress-bar-purple" role="progressbar"
                                                      style="width: {{ percentage }}%"
                                                      aria-valuenow="{{ percentage }}"
                                                      aria-valuemin="0"
@@ -162,6 +162,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .badge {
     font-size: 0.9em;
+}
+
+.progress-bar-purple {
+    background: linear-gradient(135deg, #f3e5f5, #ce93d8) !important;
 }
 </style>
 {% endblock %}

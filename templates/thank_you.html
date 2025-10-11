@@ -3,7 +3,7 @@
 {% block content %}
 <div class="voting-container text-center">
     <div class="mb-4">
-        <div class="text-success mb-3">
+        <div class="mb-3" style="color: #81c784;">
             <svg width="64" height="64" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
             </svg>
@@ -12,7 +12,7 @@
         <p class="lead">Your vote has been successfully recorded.</p>
     </div>
 
-    <div class="alert alert-success">
+    <div class="alert" style="background: linear-gradient(135deg, #e8eaf6, #c5cae9); color: #333; border: 1px solid #ce93d8;">
         <h5>What happens next?</h5>
         <ul class="text-start">
             <li>Your votes are now part of the official count</li>
@@ -24,7 +24,7 @@
 
     <div class="mt-4">
         <p class="text-muted">Thank you for participating in the SLGS OBU Presidential Election!</p>
-        <a href="{{ url_for('main.index') }}" class="btn btn-outline-primary">Return to Home</a>
+        <a href="{{ url_for('main.index') }}" class="btn" style="background: linear-gradient(135deg, #e8eaf6, #c5cae9); color: #333; border: 1px solid #ce93d8;">Return to Home</a>
     </div>
 </div>
 {% endblock %}
