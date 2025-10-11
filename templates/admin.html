@@ -329,23 +329,49 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('uploadForm').addEventListener('submit', async function(e) {
         e.preventDefault();
 
-        const formData = new FormData(this);
-        // Use the same token format as the backend expects
-        const adminToken = localStorage.getItem('adminToken') || 'admin-token';
-        const response = await fetch('/admin/upload-voters', {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + adminToken
-            },
-            body: formData
-        });
+        const fileInput = document.getElementById('voterFile');
+        if (!fileInput.files || !fileInput.files[0]) {
+            alert('Please select a CSV file first');
+            return;
+        }
 
-        const result = await response.json();
-        if (response.ok) {
-            alert('Voters uploaded successfully!');
-            location.reload();
-        } else {
-            alert('Error: ' + result.error);
+        const formData = new FormData(this);
+        const adminToken = localStorage.getItem('adminToken') || 'admin-token';
+
+        console.log('Upload attempt - Token:', adminToken);
+        console.log('File selected:', fileInput.files[0].name);
+
+        try {
+            const response = await fetch('/admin/upload-voters', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + adminToken
+                },
+                body: formData
+            });
+
+            console.log('Upload response status:', response.status);
+            const result = await response.json();
+            console.log('Upload response:', result);
+
+            if (response.ok) {
+                alert(`Voters uploaded successfully!\n\n${result.message}`);
+                location.reload();
+            } else {
+                alert('Upload failed: ' + (result.error || 'Unknown error'));
+
+                // Show detailed error information for debugging
+                if (result.error === 'Unauthorized') {
+                    alert('Authentication failed. Please check your admin token.');
+                } else if (result.error && result.error.includes('encoding')) {
+                    alert('File encoding error. Please save your CSV file as UTF-8.');
+                } else if (result.error && result.error.includes('CSV')) {
+                    alert('CSV processing error. Please check your file format.');
+                }
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            alert('Network error: ' + error.message);
         }
     });
 });
