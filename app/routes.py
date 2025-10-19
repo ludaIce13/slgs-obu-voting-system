@@ -143,8 +143,8 @@ def vote():
             flash('This Voter ID has already been used.', 'error')
             return redirect(url_for('main.vote'))
 
-        # Get votes for all positions
-        positions = Position.query.all()
+        # Get positions that have candidates (for this election: Vice President and Secretary)
+        positions = [pos for pos in Position.query.all() if pos.candidates]
         votes_recorded = 0
 
         for position in positions:
@@ -163,8 +163,9 @@ def vote():
                     db.session.add(vote)
                     votes_recorded += 1
 
+        # For this election, voters should vote for both positions, but we'll be flexible
         if votes_recorded == 0:
-            flash('Please select at least one candidate.', 'error')
+            flash('Please select at least one candidate for the available positions.', 'error')
             return redirect(url_for('main.vote'))
 
         # Mark voter as voted
@@ -176,9 +177,13 @@ def vote():
         return redirect(url_for('main.thank_you'))
 
     try:
-        positions = Position.query.all()
-        print(f"Vote page loaded - Found {len(positions)} positions")
-        return render_template('vote.html', positions=positions)
+        # Get all positions but filter to only show those with candidates for this election
+        all_positions = Position.query.all()
+        # For this specific election, only show positions that have candidates
+        positions_with_candidates = [pos for pos in all_positions if pos.candidates]
+
+        print(f"Vote page loaded - Found {len(all_positions)} total positions, {len(positions_with_candidates)} with candidates")
+        return render_template('vote.html', positions=positions_with_candidates)
     except Exception as e:
         print(f"Error loading vote page: {e}")
         import traceback
@@ -226,9 +231,10 @@ def admin_dashboard():
                     total_voters = 0
                     voted_count = 0
 
-            # Get positions and candidates
+            # Get positions and candidates - filter to only show positions with candidates for this election
             try:
-                positions = Position.query.all()
+                all_positions = Position.query.all()
+                positions = [pos for pos in all_positions if pos.candidates]
                 candidates = Candidate.query.all()
             except Exception as e:
                 print(f"Error loading positions/candidates: {e}")
@@ -284,11 +290,9 @@ def admin_dashboard():
 
                 # Try to create positions if none exist
                 try:
+                    # For this specific election, only create the 2 positions being voted on
                     positions_data = [
-                        'President', 'Vice President', 'Secretary', 'Assistant Secretary',
-                        'Treasurer', 'Assistant Treasurer', 'Social & Organizing Secretary',
-                        'Assistant Social Secretary & Organizing Secretary', 'Publicity Secretary',
-                        'Chairman Improvement Committee', 'Diaspora Coordinator', 'Chief Whip'
+                        'Vice President', 'Secretary'
                     ]
 
                     for name in positions_data:
@@ -370,8 +374,9 @@ def public_dashboard():
         total_voters = Voter.query.count()
         voted_count = Voter.query.filter_by(has_voted=True).count()
 
-        # Get positions and vote counts
-        positions = Position.query.all()
+        # Get only positions that have candidates (for this election: Vice President and Secretary)
+        all_positions = Position.query.all()
+        positions = [pos for pos in all_positions if pos.candidates]
         position_results = {}
 
         for position in positions:
@@ -381,10 +386,10 @@ def public_dashboard():
                 position_results[position.name][candidate.name] = vote_count
 
         return render_template('dashboard.html',
-                             total_voters=total_voters,
-                             voted_count=voted_count,
-                             positions=positions,
-                             position_results=position_results)
+                              total_voters=total_voters,
+                              voted_count=voted_count,
+                              positions=positions,
+                              position_results=position_results)
 
     except Exception as e:
         print(f"Error loading public dashboard: {e}")
@@ -715,7 +720,9 @@ def export_results():
     if not request.headers.get('Authorization') == 'Bearer ' + os.environ.get('ADMIN_TOKEN', 'admin-token'):
         return jsonify({'error': 'Unauthorized'}), 401
 
-    positions = Position.query.all()
+    # Get only positions that have candidates (for this election: Vice President and Secretary)
+    all_positions = Position.query.all()
+    positions = [pos for pos in all_positions if pos.candidates]
 
     # Create CSV content
     import io
@@ -921,11 +928,9 @@ def create_positions():
         return jsonify({'error': 'Unauthorized'}), 401
 
     try:
+        # For this specific election, only create the 2 positions being voted on
         positions_data = [
-            'President', 'Vice President', 'Secretary', 'Assistant Secretary',
-            'Treasurer', 'Assistant Treasurer', 'Social & Organizing Secretary',
-            'Assistant Social Secretary & Organizing Secretary', 'Publicity Secretary',
-            'Chairman Improvement Committee', 'Diaspora Coordinator', 'Chief Whip'
+            'Vice President', 'Secretary'
         ]
 
         created_count = 0
