@@ -655,6 +655,8 @@ def upload_voters():
                 except Exception as commit_error:
                     db.session.rollback()
                     print(f"Database commit error: {commit_error}")
+                    import traceback
+                    traceback.print_exc()
                     return jsonify({'error': f'Database error during save: {str(commit_error)}'}), 500
             else:
                 print(f"No voters to commit: {voters_added} added, {voters_skipped} skipped, {invalid_rows} invalid")
