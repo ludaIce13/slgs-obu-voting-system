@@ -4,6 +4,7 @@ import secrets
 import string
 
 class Voter(db.Model):
+    __tablename__ = 'voter'
     id = db.Column(db.Integer, primary_key=True)
     member_id = db.Column(db.String(50), unique=True, nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
