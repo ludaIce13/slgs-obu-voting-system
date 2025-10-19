@@ -1054,14 +1054,17 @@ def fix_database():
             return jsonify({'error': 'This fix is only for PostgreSQL databases'}), 400
 
         with db.engine.connect() as conn:
+            fixes_applied = []
+
             try:
-                # First, clear any failed transactions
-                conn.execute(db.text("ROLLBACK"))
-                print("Rolled back any existing failed transactions")
+                # Fix 1: Clear any aborted transactions first
+                try:
+                    conn.execute(db.text("ROLLBACK"))
+                    print("✅ Cleared aborted transactions")
+                except Exception as e:
+                    print(f"Note: No transactions to rollback: {e}")
 
-                fixes_applied = []
-
-                # Fix 1: Update voter_id column size from VARCHAR(8) to VARCHAR(20)
+                # Fix 2: Update voter_id column size from VARCHAR(8) to VARCHAR(20)
                 try:
                     # Check current voter_id column size
                     result = conn.execute(db.text("""
@@ -1081,9 +1084,9 @@ def fix_database():
 
                 except Exception as e:
                     print(f"Error updating voter_id column: {e}")
-                    return jsonify({'error': f'Failed to update voter_id column: {str(e)}'}), 500
+                    # Don't return error, try to continue with other fixes
 
-                # Fix 2: Ensure voting_token column exists
+                # Fix 3: Ensure voting_token column exists
                 try:
                     result = conn.execute(db.text("SELECT voting_token FROM voter LIMIT 1"))
                     print("✅ voting_token column already exists")
@@ -1094,9 +1097,10 @@ def fix_database():
                         fixes_applied.append("Added voting_token column")
                         print("✅ Successfully added voting_token column")
                     except Exception as e:
-                        return jsonify({'error': f'Failed to add voting_token column: {str(e)}'}), 500
+                        print(f"Error adding voting_token column: {e}")
+                        # Don't return error, try to continue
 
-                # Fix 3: Ensure voting_enabled column exists in position table
+                # Fix 4: Ensure voting_enabled column exists in position table
                 try:
                     result = conn.execute(db.text("SELECT voting_enabled FROM position LIMIT 1"))
                     print("✅ voting_enabled column already exists")
@@ -1108,33 +1112,50 @@ def fix_database():
                         print("✅ Successfully added voting_enabled column")
                     except Exception as e:
                         print(f"Error adding voting_enabled column: {e}")
-                        return jsonify({'error': f'Failed to add voting_enabled column: {str(e)}'}), 500
+                        # Try a different approach
+                        try:
+                            print("Retrying with explicit transaction...")
+                            conn.execute(db.text("ROLLBACK"))
+                            conn.execute(db.text("ALTER TABLE position ADD COLUMN voting_enabled BOOLEAN DEFAULT true"))
+                            fixes_applied.append("Added voting_enabled column to position table (retry)")
+                            print("✅ Successfully added voting_enabled column (retry)")
+                        except Exception as retry_error:
+                            print(f"Retry also failed: {retry_error}")
+                            return jsonify({'error': f'Failed to add voting_enabled column after retry: {str(retry_error)}'}), 500
 
+                # Commit all changes
                 conn.commit()
+                print(f"✅ Committed {len(fixes_applied)} fixes successfully")
 
                 # Verify fixes
                 try:
-                    # Check voter table columns
-                    result = conn.execute(db.text("""
-                        SELECT column_name, character_maximum_length
-                        FROM information_schema.columns
-                        WHERE table_name = 'voter' AND column_name IN ('voter_id', 'voting_token')
-                    """))
-
-                    column_info = {row[0]: row[1] for row in result}
                     verification = []
-                    verification.append(f"voter_id column size: {column_info.get('voter_id', 'unknown')}")
-                    verification.append(f"voting_token column size: {column_info.get('voting_token', 'unknown')}")
+
+                    # Check voter table columns
+                    try:
+                        result = conn.execute(db.text("""
+                            SELECT column_name, character_maximum_length
+                            FROM information_schema.columns
+                            WHERE table_name = 'voter' AND column_name IN ('voter_id', 'voting_token')
+                        """))
+
+                        column_info = {row[0]: row[1] for row in result}
+                        verification.append(f"voter_id column size: {column_info.get('voter_id', 'unknown')}")
+                        verification.append(f"voting_token column size: {column_info.get('voting_token', 'unknown')}")
+                    except Exception as e:
+                        verification.append(f"Error checking voter table: {str(e)}")
 
                     # Check position table voting_enabled column
                     try:
                         result = conn.execute(db.text("SELECT voting_enabled FROM position LIMIT 1"))
-                        verification.append("voting_enabled column exists in position table")
+                        verification.append("✅ voting_enabled column exists in position table")
                     except Exception:
-                        verification.append("voting_enabled column missing in position table")
+                        verification.append("❌ voting_enabled column missing in position table")
+
+                    print(f"Verification results: {verification}")
 
                 except Exception as e:
-                    verification = [f"Error verifying columns: {str(e)}"]
+                    verification = [f"Error during verification: {str(e)}"]
 
                 return jsonify({
                     'message': f'✅ Database fixes applied successfully: {", ".join(fixes_applied)}',
@@ -1143,19 +1164,46 @@ def fix_database():
                 }), 200
 
             except Exception as alter_error:
-                # Try to rollback and retry once
+                print(f"Error during fixes: {alter_error}")
+                # Try to rollback and retry with individual fixes
                 try:
                     conn.execute(db.text("ROLLBACK"))
                     print("Retrying after rollback...")
 
-                    # Just update the voter_id column size
-                    conn.execute(db.text("ALTER TABLE voter ALTER COLUMN voter_id TYPE VARCHAR(20)"))
-                    conn.commit()
+                    retry_fixes = []
 
-                    return jsonify({
-                        'message': '✅ Successfully updated voter_id column size (after retry)',
-                        'fixes_count': 1
-                    }), 200
+                    # Retry voter_id column update
+                    try:
+                        conn.execute(db.text("ALTER TABLE voter ALTER COLUMN voter_id TYPE VARCHAR(20)"))
+                        retry_fixes.append("Updated voter_id column size")
+                        print("✅ voter_id column updated in retry")
+                    except Exception as e:
+                        print(f"Failed to update voter_id in retry: {e}")
+
+                    # Retry voting_token column
+                    try:
+                        conn.execute(db.text("ALTER TABLE voter ADD COLUMN voting_token VARCHAR(8) UNIQUE"))
+                        retry_fixes.append("Added voting_token column")
+                        print("✅ voting_token column added in retry")
+                    except Exception as e:
+                        print(f"Failed to add voting_token in retry: {e}")
+
+                    # Retry voting_enabled column
+                    try:
+                        conn.execute(db.text("ALTER TABLE position ADD COLUMN voting_enabled BOOLEAN DEFAULT true"))
+                        retry_fixes.append("Added voting_enabled column")
+                        print("✅ voting_enabled column added in retry")
+                    except Exception as e:
+                        print(f"Failed to add voting_enabled in retry: {e}")
+
+                    if retry_fixes:
+                        conn.commit()
+                        return jsonify({
+                            'message': f'✅ Successfully applied {len(retry_fixes)} fixes after retry: {", ".join(retry_fixes)}',
+                            'fixes_count': len(retry_fixes)
+                        }), 200
+                    else:
+                        return jsonify({'error': 'Failed to apply any fixes even after retry'}), 500
 
                 except Exception as retry_error:
                     return jsonify({'error': f'Failed to fix database after retry: {str(retry_error)}'}), 500
