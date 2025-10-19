@@ -143,8 +143,9 @@ def vote():
             flash('This Voter ID has already been used.', 'error')
             return redirect(url_for('main.vote'))
 
-        # Get positions that have candidates (for this election: Vice President and Secretary)
-        positions = [pos for pos in Position.query.all() if pos.candidates]
+        # Get positions that have voting enabled and have candidates
+        all_positions = Position.query.all()
+        positions = [pos for pos in all_positions if pos.voting_enabled and pos.candidates]
         votes_recorded = 0
 
         for position in positions:
@@ -177,13 +178,13 @@ def vote():
         return redirect(url_for('main.thank_you'))
 
     try:
-        # Get all positions but filter to only show those with candidates for this election
+        # Get positions that have voting enabled and have candidates
         all_positions = Position.query.all()
-        # For this specific election, only show positions that have candidates
-        positions_with_candidates = [pos for pos in all_positions if pos.candidates]
+        # Only show positions where voting is enabled and have candidates
+        votable_positions = [pos for pos in all_positions if pos.voting_enabled and pos.candidates]
 
-        print(f"Vote page loaded - Found {len(all_positions)} total positions, {len(positions_with_candidates)} with candidates")
-        return render_template('vote.html', positions=positions_with_candidates)
+        print(f"Vote page loaded - Found {len(all_positions)} total positions, {len(votable_positions)} votable with candidates")
+        return render_template('vote.html', positions=votable_positions)
     except Exception as e:
         print(f"Error loading vote page: {e}")
         import traceback
@@ -231,10 +232,10 @@ def admin_dashboard():
                     total_voters = 0
                     voted_count = 0
 
-            # Get positions and candidates - filter to only show positions with candidates for this election
+            # Get positions and candidates - show all positions but highlight voting status
             try:
                 all_positions = Position.query.all()
-                positions = [pos for pos in all_positions if pos.candidates]
+                positions = all_positions  # Show all positions in admin
                 candidates = Candidate.query.all()
             except Exception as e:
                 print(f"Error loading positions/candidates: {e}")
@@ -290,14 +291,25 @@ def admin_dashboard():
 
                 # Try to create positions if none exist
                 try:
-                    # For this specific election, only create the 2 positions being voted on
+                    # Create all 12 positions for the General Election
                     positions_data = [
-                        'Vice President', 'Secretary'
+                        ('President', True), ('Vice President', True), ('Secretary', True),
+                        ('Assistant Secretary', False), ('Treasurer', False), ('Assistant Treasurer', False),
+                        ('Social & Organizing Secretary', False), ('Assistant Social Secretary & Organizing Secretary', False),
+                        ('Publicity Secretary', False), ('Chairman Improvement Committee', False),
+                        ('Diaspora Coordinator', False), ('Chief Whip', False)
                     ]
 
-                    for name in positions_data:
-                        pos = Position(name=name, description=f'{name} of SLGS Old Boys Union')
-                        db.session.add(pos)
+                    for name, voting_enabled in positions_data:
+                        # Check if position already exists
+                        existing = Position.query.filter_by(name=name).first()
+                        if not existing:
+                            pos = Position(
+                                name=name,
+                                description=f'{name} of SLGS Old Boys Union',
+                                voting_enabled=voting_enabled
+                            )
+                            db.session.add(pos)
 
                     db.session.commit()
                     print(f"Created {len(positions_data)} positions successfully")
@@ -374,9 +386,9 @@ def public_dashboard():
         total_voters = Voter.query.count()
         voted_count = Voter.query.filter_by(has_voted=True).count()
 
-        # Get only positions that have candidates (for this election: Vice President and Secretary)
+        # Get positions that have voting enabled and have candidates
         all_positions = Position.query.all()
-        positions = [pos for pos in all_positions if pos.candidates]
+        positions = [pos for pos in all_positions if pos.voting_enabled and pos.candidates]
         position_results = {}
 
         for position in positions:
@@ -720,9 +732,9 @@ def export_results():
     if not request.headers.get('Authorization') == 'Bearer ' + os.environ.get('ADMIN_TOKEN', 'admin-token'):
         return jsonify({'error': 'Unauthorized'}), 401
 
-    # Get only positions that have candidates (for this election: Vice President and Secretary)
+    # Get positions that have voting enabled and have candidates
     all_positions = Position.query.all()
-    positions = [pos for pos in all_positions if pos.candidates]
+    positions = [pos for pos in all_positions if pos.voting_enabled and pos.candidates]
 
     # Create CSV content
     import io
@@ -918,7 +930,39 @@ def list_positions():
     if not _is_admin_req(request):
         return jsonify({'error': 'Unauthorized'}), 401
     positions = Position.query.all()
-    return jsonify([{'id': p.id, 'name': p.name} for p in positions])
+    return jsonify([{
+        'id': p.id,
+        'name': p.name,
+        'voting_enabled': p.voting_enabled,
+        'candidate_count': len(p.candidates)
+    } for p in positions])
+
+
+@admin.route('/positions/<int:position_id>/toggle-voting', methods=['POST'])
+def toggle_position_voting(position_id):
+    """Toggle voting status for a specific position"""
+    if not _is_admin_req(request):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        position = Position.query.get(position_id)
+        if not position:
+            return jsonify({'error': 'Position not found'}), 404
+
+        # Toggle the voting status
+        position.voting_enabled = not position.voting_enabled
+        db.session.commit()
+
+        return jsonify({
+            'message': f'Voting {"enabled" if position.voting_enabled else "disabled"} for {position.name}',
+            'position_id': position.id,
+            'name': position.name,
+            'voting_enabled': position.voting_enabled
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 
 @admin.route('/create-positions', methods=['POST'])
@@ -928,22 +972,34 @@ def create_positions():
         return jsonify({'error': 'Unauthorized'}), 401
 
     try:
-        # For this specific election, only create the 2 positions being voted on
+        # Create all 12 positions for the General Election
         positions_data = [
-            'Vice President', 'Secretary'
+            ('President', True), ('Vice President', True), ('Secretary', True),
+            ('Assistant Secretary', False), ('Treasurer', False), ('Assistant Treasurer', False),
+            ('Social & Organizing Secretary', False), ('Assistant Social Secretary & Organizing Secretary', False),
+            ('Publicity Secretary', False), ('Chairman Improvement Committee', False),
+            ('Diaspora Coordinator', False), ('Chief Whip', False)
         ]
 
         created_count = 0
         existing_count = 0
 
-        for name in positions_data:
+        for name, voting_enabled in positions_data:
             existing = Position.query.filter_by(name=name).first()
             if not existing:
-                pos = Position(name=name, description=f'{name} of SLGS Old Boys Union')
+                pos = Position(
+                    name=name,
+                    description=f'{name} of SLGS Old Boys Union',
+                    voting_enabled=voting_enabled
+                )
                 db.session.add(pos)
                 created_count += 1
-                print(f'Created position: {name}')
+                print(f'Created position: {name} (voting: {voting_enabled})')
             else:
+                # Update existing position's voting status
+                if existing.voting_enabled != voting_enabled:
+                    existing.voting_enabled = voting_enabled
+                    print(f'Updated position: {name} (voting: {voting_enabled})')
                 existing_count += 1
                 print(f'Position already exists: {name}')
 

@@ -13,7 +13,7 @@
         <div class="row">
             <div class="col">
                 <h2 class="mb-0">Election Administration Dashboard</h2>
-                <p class="mb-0">SLGS OBU Special Election - Vice President & Secretary</p>
+                <p class="mb-0">SLGS OBU General Election</p>
                 <small class="text-warning">
                     🔐 Admin Token: <span id="tokenStatus">Checking...</span>
                     {% if auth_ok %}
@@ -241,14 +241,29 @@
                             <h2 class="accordion-header" id="heading{{ pos.id }}">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ pos.id }}" aria-expanded="false" aria-controls="collapse{{ pos.id }}">
                                     {{ pos.name }}
+                                    <span class="ms-2">
+                                        {% if pos.voting_enabled %}
+                                            <span class="badge" style="background: linear-gradient(135deg, #a5d6a7, #81c784); color: #333;">Voting Open</span>
+                                        {% else %}
+                                            <span class="badge" style="background: linear-gradient(135deg, #ffcdd2, #f8bbd9); color: #333;">Voting Closed</span>
+                                        {% endif %}
+                                    </span>
                                 </button>
                             </h2>
                             <div id="collapse{{ pos.id }}" class="accordion-collapse collapse" aria-labelledby="heading{{ pos.id }}" data-bs-parent="#positionsAccordion">
                                 <div class="accordion-body">
-                                    <div class="d-flex mb-2">
+                                    <div class="d-flex mb-2 flex-wrap gap-2">
                                         <button class="btn btn-sm btn-primary me-2 add-candidate-btn" data-pos="{{ pos.id }}">Add Candidate to {{ pos.name }}</button>
                                         <button class="btn btn-sm btn-outline-info toggle-edit-btn" id="toggleEditBtn{{ pos.id }}" data-pos="{{ pos.id }}">Edit Candidates</button>
-                                        <button class="btn btn-sm btn-outline-secondary ms-2 d-none refresh-pos-btn" id="refreshBtn{{ pos.id }}" data-pos="{{ pos.id }}">Refresh</button>
+                                        <button class="btn btn-sm btn-outline-secondary d-none refresh-pos-btn" id="refreshBtn{{ pos.id }}" data-pos="{{ pos.id }}">Refresh</button>
+                                        <button class="btn btn-sm toggle-voting-btn" id="toggleVotingBtn{{ pos.id }}" data-pos="{{ pos.id }}"
+                                                {% if pos.voting_enabled %}
+                                                style="background: linear-gradient(135deg, #ffcdd2, #f8bbd9); color: #333; border: none;"
+                                                {% else %}
+                                                style="background: linear-gradient(135deg, #a5d6a7, #81c784); color: #333; border: none;"
+                                                {% endif %}>
+                                            {% if pos.voting_enabled %}Disable Voting{% else %}Enable Voting{% endif %}
+                                        </button>
                                     </div>
                                     <div class="table-responsive d-none" id="candidatesWrapperPos{{ pos.id }}">
                                         <table class="table table-sm table-hover" id="candidatesTablePos{{ pos.id }}">
@@ -771,6 +786,14 @@ function bindPositionButtons() {
             loadCandidates(posId);
         });
     });
+
+    // Handle toggle voting buttons
+    document.querySelectorAll('.toggle-voting-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+            const posId = parseInt(btn.dataset.pos);
+            toggleVotingStatus(posId);
+        });
+    });
 }
 
 function toggleEditTable(posId) {
@@ -950,6 +973,62 @@ async function deleteCandidate(id) {
     } else {
         const err = await res.json();
         alert('Error: ' + (err.error || 'Delete failed'));
+    }
+}
+
+async function toggleVotingStatus(positionId) {
+    const adminToken = localStorage.getItem('adminToken') || 'admin-token';
+    const toggleBtn = document.getElementById('toggleVotingBtn' + positionId);
+
+    // Disable button during request
+    toggleBtn.disabled = true;
+    toggleBtn.textContent = 'Updating...';
+
+    try {
+        const res = await fetch('/admin/positions/' + positionId + '/toggle-voting', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + adminToken
+            }
+        });
+
+        const result = await res.json();
+
+        if (res.ok) {
+            // Update button appearance and text
+            if (result.voting_enabled) {
+                toggleBtn.textContent = 'Disable Voting';
+                toggleBtn.style.background = 'linear-gradient(135deg, #ffcdd2, #f8bbd9)';
+                toggleBtn.style.color = '#333';
+            } else {
+                toggleBtn.textContent = 'Enable Voting';
+                toggleBtn.style.background = 'linear-gradient(135deg, #a5d6a7, #81c784)';
+                toggleBtn.style.color = '#333';
+            }
+
+            // Update the badge in the accordion header
+            const headerBtn = document.querySelector(`[data-bs-target="#collapse${positionId}"]`);
+            const badge = headerBtn.querySelector('.badge');
+            if (result.voting_enabled) {
+                badge.textContent = 'Voting Open';
+                badge.style.background = 'linear-gradient(135deg, #a5d6a7, #81c784)';
+                badge.style.color = '#333';
+            } else {
+                badge.textContent = 'Voting Closed';
+                badge.style.background = 'linear-gradient(135deg, #ffcdd2, #f8bbd9)';
+                badge.style.color = '#333';
+            }
+
+            alert(result.message);
+        } else {
+            alert('Error: ' + (result.error || 'Toggle failed'));
+        }
+    } catch (error) {
+        alert('Network error: ' + error.message);
+    } finally {
+        // Re-enable button
+        toggleBtn.disabled = false;
     }
 }
 </script>

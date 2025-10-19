@@ -64,6 +64,7 @@ class Position(db.Model):
     name = db.Column(db.String(100), nullable=False)  # President, Vice President, Secretary, Treasurer
     description = db.Column(db.String(255))
     max_votes = db.Column(db.Integer, default=1)  # Usually 1 for each position
+    voting_enabled = db.Column(db.Boolean, default=True)  # Control whether voting is open for this position
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationship to candidates
