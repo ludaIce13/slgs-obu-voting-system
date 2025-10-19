@@ -144,8 +144,21 @@ def vote():
             return redirect(url_for('main.vote'))
 
         # Get positions that have voting enabled and have candidates
-        all_positions = Position.query.all()
-        positions = [pos for pos in all_positions if pos.voting_enabled and pos.candidates]
+        try:
+            all_positions = Position.query.all()
+            # Handle missing voting_enabled column
+            positions_with_voting = []
+            for pos in all_positions:
+                voting_enabled = getattr(pos, 'voting_enabled', True)  # Default to True if column missing
+                if voting_enabled and pos.candidates:
+                    positions_with_voting.append(pos)
+
+            positions = positions_with_voting
+            print(f"Found {len(positions)} votable positions with candidates")
+        except Exception as pos_error:
+            print(f"Error loading positions for voting: {pos_error}")
+            positions = []
+
         votes_recorded = 0
 
         for position in positions:
@@ -234,8 +247,36 @@ def admin_dashboard():
 
             # Get positions and candidates - show all positions but highlight voting status
             try:
-                all_positions = Position.query.all()
-                positions = all_positions  # Show all positions in admin
+                # Handle missing voting_enabled column gracefully
+                try:
+                    all_positions = Position.query.all()
+                    positions = all_positions  # Show all positions in admin
+                    print(f"Loaded {len(positions)} positions successfully")
+                except Exception as pos_error:
+                    print(f"Error loading positions: {pos_error}")
+                    # Try basic query without voting_enabled
+                    try:
+                        from sqlalchemy import text
+                        result = db.session.execute(text("SELECT id, name, description, max_votes, created_at FROM position"))
+                        positions = []
+                        for row in result:
+                            # Create a mock position object
+                            class MockPosition:
+                                def __init__(self, data):
+                                    self.id = data[0]
+                                    self.name = data[1]
+                                    self.description = data[2]
+                                    self.max_votes = data[3]
+                                    self.created_at = data[4]
+                                    self.voting_enabled = True  # Default to enabled
+                                    self.candidates = []
+
+                            positions.append(MockPosition(row))
+                        print(f"Loaded {len(positions)} positions using fallback method")
+                    except Exception as fallback_error:
+                        print(f"Fallback query also failed: {fallback_error}")
+                        positions = []
+
                 candidates = Candidate.query.all()
             except Exception as e:
                 print(f"Error loading positions/candidates: {e}")
@@ -301,15 +342,46 @@ def admin_dashboard():
                     ]
 
                     for name, voting_enabled in positions_data:
-                        # Check if position already exists
-                        existing = Position.query.filter_by(name=name).first()
-                        if not existing:
-                            pos = Position(
-                                name=name,
-                                description=f'{name} of SLGS Old Boys Union',
-                                voting_enabled=voting_enabled
-                            )
-                            db.session.add(pos)
+                        # Check if position already exists (handle missing voting_enabled column)
+                        try:
+                            existing = Position.query.filter_by(name=name).first()
+                            if not existing:
+                                # Create new position - handle missing voting_enabled column
+                                try:
+                                    pos = Position(
+                                        name=name,
+                                        description=f'{name} of SLGS Old Boys Union',
+                                        voting_enabled=voting_enabled
+                                    )
+                                    db.session.add(pos)
+                                    print(f'Created position: {name} (voting: {voting_enabled})')
+                                except Exception as create_error:
+                                    print(f'Error creating position {name}: {create_error}')
+                                    # Try without voting_enabled if column doesn't exist
+                                    if 'voting_enabled' in str(create_error):
+                                        pos = Position(
+                                            name=name,
+                                            description=f'{name} of SLGS Old Boys Union'
+                                        )
+                                        db.session.add(pos)
+                                        print(f'Created position: {name} (without voting_enabled)')
+                                    else:
+                                        raise create_error
+                            else:
+                                print(f'Position already exists: {name}')
+                        except Exception as check_error:
+                            print(f'Error checking position {name}: {check_error}')
+                            # If it's a column error, try to create position without voting_enabled
+                            if 'voting_enabled' in str(check_error):
+                                try:
+                                    pos = Position(
+                                        name=name,
+                                        description=f'{name} of SLGS Old Boys Union'
+                                    )
+                                    db.session.add(pos)
+                                    print(f'Created position: {name} (fallback method)')
+                                except Exception as fallback_error:
+                                    print(f'Fallback creation also failed for {name}: {fallback_error}')
 
                     db.session.commit()
                     print(f"Created {len(positions_data)} positions successfully")
@@ -387,8 +459,21 @@ def public_dashboard():
         voted_count = Voter.query.filter_by(has_voted=True).count()
 
         # Get positions that have voting enabled and have candidates
-        all_positions = Position.query.all()
-        positions = [pos for pos in all_positions if pos.voting_enabled and pos.candidates]
+        try:
+            all_positions = Position.query.all()
+            # Handle missing voting_enabled column
+            positions_with_voting = []
+            for pos in all_positions:
+                voting_enabled = getattr(pos, 'voting_enabled', True)  # Default to True if column missing
+                if voting_enabled and pos.candidates:
+                    positions_with_voting.append(pos)
+
+            positions = positions_with_voting
+            print(f"Public dashboard: Found {len(positions)} votable positions with candidates")
+        except Exception as pos_error:
+            print(f"Error loading positions for public dashboard: {pos_error}")
+            positions = []
+
         position_results = {}
 
         for position in positions:
@@ -733,8 +818,20 @@ def export_results():
         return jsonify({'error': 'Unauthorized'}), 401
 
     # Get positions that have voting enabled and have candidates
-    all_positions = Position.query.all()
-    positions = [pos for pos in all_positions if pos.voting_enabled and pos.candidates]
+    try:
+        all_positions = Position.query.all()
+        # Handle missing voting_enabled column
+        positions_with_voting = []
+        for pos in all_positions:
+            voting_enabled = getattr(pos, 'voting_enabled', True)  # Default to True if column missing
+            if voting_enabled and pos.candidates:
+                positions_with_voting.append(pos)
+
+        positions = positions_with_voting
+        print(f"Export results: Found {len(positions)} votable positions with candidates")
+    except Exception as pos_error:
+        print(f"Error loading positions for export: {pos_error}")
+        positions = []
 
     # Create CSV content
     import io
@@ -985,23 +1082,56 @@ def create_positions():
         existing_count = 0
 
         for name, voting_enabled in positions_data:
-            existing = Position.query.filter_by(name=name).first()
-            if not existing:
-                pos = Position(
-                    name=name,
-                    description=f'{name} of SLGS Old Boys Union',
-                    voting_enabled=voting_enabled
-                )
-                db.session.add(pos)
-                created_count += 1
-                print(f'Created position: {name} (voting: {voting_enabled})')
-            else:
-                # Update existing position's voting status
-                if existing.voting_enabled != voting_enabled:
-                    existing.voting_enabled = voting_enabled
-                    print(f'Updated position: {name} (voting: {voting_enabled})')
-                existing_count += 1
-                print(f'Position already exists: {name}')
+            try:
+                existing = Position.query.filter_by(name=name).first()
+                if not existing:
+                    # Create new position - handle missing voting_enabled column
+                    try:
+                        pos = Position(
+                            name=name,
+                            description=f'{name} of SLGS Old Boys Union',
+                            voting_enabled=voting_enabled
+                        )
+                        db.session.add(pos)
+                        created_count += 1
+                        print(f'Created position: {name} (voting: {voting_enabled})')
+                    except Exception as create_error:
+                        print(f'Error creating position {name}: {create_error}')
+                        # Try without voting_enabled if column doesn't exist
+                        if 'voting_enabled' in str(create_error):
+                            pos = Position(
+                                name=name,
+                                description=f'{name} of SLGS Old Boys Union'
+                            )
+                            db.session.add(pos)
+                            created_count += 1
+                            print(f'Created position: {name} (without voting_enabled)')
+                        else:
+                            raise create_error
+                else:
+                    # Update existing position's voting status if possible
+                    try:
+                        if hasattr(existing, 'voting_enabled') and existing.voting_enabled != voting_enabled:
+                            existing.voting_enabled = voting_enabled
+                            print(f'Updated position: {name} (voting: {voting_enabled})')
+                    except Exception as update_error:
+                        print(f'Could not update voting status for {name}: {update_error}')
+                    existing_count += 1
+                    print(f'Position already exists: {name}')
+            except Exception as check_error:
+                print(f'Error checking position {name}: {check_error}')
+                # If it's a column error, try to create position without voting_enabled
+                if 'voting_enabled' in str(check_error):
+                    try:
+                        pos = Position(
+                            name=name,
+                            description=f'{name} of SLGS Old Boys Union'
+                        )
+                        db.session.add(pos)
+                        created_count += 1
+                        print(f'Created position: {name} (fallback method)')
+                    except Exception as fallback_error:
+                        print(f'Fallback creation also failed for {name}: {fallback_error}')
 
         if created_count > 0:
             db.session.commit()
