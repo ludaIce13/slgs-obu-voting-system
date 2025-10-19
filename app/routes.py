@@ -1096,10 +1096,25 @@ def fix_database():
                     except Exception as e:
                         return jsonify({'error': f'Failed to add voting_token column: {str(e)}'}), 500
 
+                # Fix 3: Ensure voting_enabled column exists in position table
+                try:
+                    result = conn.execute(db.text("SELECT voting_enabled FROM position LIMIT 1"))
+                    print("✅ voting_enabled column already exists")
+                except Exception:
+                    # Column doesn't exist, add it
+                    try:
+                        conn.execute(db.text("ALTER TABLE position ADD COLUMN voting_enabled BOOLEAN DEFAULT true"))
+                        fixes_applied.append("Added voting_enabled column to position table")
+                        print("✅ Successfully added voting_enabled column")
+                    except Exception as e:
+                        print(f"Error adding voting_enabled column: {e}")
+                        return jsonify({'error': f'Failed to add voting_enabled column: {str(e)}'}), 500
+
                 conn.commit()
 
                 # Verify fixes
                 try:
+                    # Check voter table columns
                     result = conn.execute(db.text("""
                         SELECT column_name, character_maximum_length
                         FROM information_schema.columns
@@ -1110,6 +1125,13 @@ def fix_database():
                     verification = []
                     verification.append(f"voter_id column size: {column_info.get('voter_id', 'unknown')}")
                     verification.append(f"voting_token column size: {column_info.get('voting_token', 'unknown')}")
+
+                    # Check position table voting_enabled column
+                    try:
+                        result = conn.execute(db.text("SELECT voting_enabled FROM position LIMIT 1"))
+                        verification.append("voting_enabled column exists in position table")
+                    except Exception:
+                        verification.append("voting_enabled column missing in position table")
 
                 except Exception as e:
                     verification = [f"Error verifying columns: {str(e)}"]
