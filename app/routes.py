@@ -983,7 +983,7 @@ def check_positions():
 
 @admin.route('/fix-database', methods=['POST'])
 def fix_database():
-    """Fix database schema issues (adds missing columns)"""
+    """Fix database schema issues (adds missing columns and updates sizes)"""
     if not _is_admin_req(request):
         return jsonify({'error': 'Unauthorized'}), 401
 
@@ -992,44 +992,93 @@ def fix_database():
         if not current_app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgresql'):
             return jsonify({'error': 'This fix is only for PostgreSQL databases'}), 400
 
-        # Try to add the missing voting_token column
         with db.engine.connect() as conn:
             try:
-                # First, clear any failed transactions by starting a new one
+                # First, clear any failed transactions
                 conn.execute(db.text("ROLLBACK"))
                 print("Rolled back any existing failed transactions")
 
-                # Check if column exists first
-                result = conn.execute(db.text("SELECT voting_token FROM voter LIMIT 1"))
-                return jsonify({'message': 'voting_token column already exists'}), 200
-            except Exception:
-                # Column doesn't exist, add it
+                fixes_applied = []
+
+                # Fix 1: Update voter_id column size from VARCHAR(8) to VARCHAR(20)
                 try:
-                    conn.execute(db.text("ALTER TABLE voter ADD COLUMN voting_token VARCHAR(8) UNIQUE"))
-                    conn.commit()
-                    print("Successfully added voting_token column")
+                    # Check current voter_id column size
+                    result = conn.execute(db.text("""
+                        SELECT character_maximum_length
+                        FROM information_schema.columns
+                        WHERE table_name = 'voter' AND column_name = 'voter_id'
+                    """))
+                    current_size = result.scalar()
 
-                    # Verify it was added
+                    if current_size == 8:
+                        print(f"Current voter_id column size: {current_size}, updating to 20")
+                        conn.execute(db.text("ALTER TABLE voter ALTER COLUMN voter_id TYPE VARCHAR(20)"))
+                        fixes_applied.append("Updated voter_id column from VARCHAR(8) to VARCHAR(20)")
+                        print("✅ Successfully updated voter_id column size")
+                    else:
+                        print(f"voter_id column already has size: {current_size}")
+
+                except Exception as e:
+                    print(f"Error updating voter_id column: {e}")
+                    return jsonify({'error': f'Failed to update voter_id column: {str(e)}'}), 500
+
+                # Fix 2: Ensure voting_token column exists
+                try:
+                    result = conn.execute(db.text("SELECT voting_token FROM voter LIMIT 1"))
+                    print("✅ voting_token column already exists")
+                except Exception:
+                    # Column doesn't exist, add it
                     try:
-                        result = conn.execute(db.text("SELECT voting_token FROM voter LIMIT 1"))
-                        return jsonify({'message': '✅ Successfully added voting_token column to database'}), 200
-                    except Exception as e:
-                        return jsonify({'error': f'Failed to verify column: {str(e)}'}), 500
-                except Exception as alter_error:
-                    # Try to rollback and retry once
-                    try:
-                        conn.execute(db.text("ROLLBACK"))
                         conn.execute(db.text("ALTER TABLE voter ADD COLUMN voting_token VARCHAR(8) UNIQUE"))
-                        conn.commit()
+                        fixes_applied.append("Added voting_token column")
+                        print("✅ Successfully added voting_token column")
+                    except Exception as e:
+                        return jsonify({'error': f'Failed to add voting_token column: {str(e)}'}), 500
 
-                        # Final verification
-                        result = conn.execute(db.text("SELECT voting_token FROM voter LIMIT 1"))
-                        return jsonify({'message': '✅ Successfully added voting_token column to database (after retry)'}), 200
-                    except Exception as retry_error:
-                        return jsonify({'error': f'Failed to add column after retry: {str(retry_error)}'}), 500
+                conn.commit()
+
+                # Verify fixes
+                try:
+                    result = conn.execute(db.text("""
+                        SELECT column_name, character_maximum_length
+                        FROM information_schema.columns
+                        WHERE table_name = 'voter' AND column_name IN ('voter_id', 'voting_token')
+                    """))
+
+                    column_info = {row[0]: row[1] for row in result}
+                    verification = []
+                    verification.append(f"voter_id column size: {column_info.get('voter_id', 'unknown')}")
+                    verification.append(f"voting_token column size: {column_info.get('voting_token', 'unknown')}")
+
+                except Exception as e:
+                    verification = [f"Error verifying columns: {str(e)}"]
+
+                return jsonify({
+                    'message': f'✅ Database fixes applied successfully: {", ".join(fixes_applied)}',
+                    'verification': verification,
+                    'fixes_count': len(fixes_applied)
+                }), 200
+
+            except Exception as alter_error:
+                # Try to rollback and retry once
+                try:
+                    conn.execute(db.text("ROLLBACK"))
+                    print("Retrying after rollback...")
+
+                    # Just update the voter_id column size
+                    conn.execute(db.text("ALTER TABLE voter ALTER COLUMN voter_id TYPE VARCHAR(20)"))
+                    conn.commit()
+
+                    return jsonify({
+                        'message': '✅ Successfully updated voter_id column size (after retry)',
+                        'fixes_count': 1
+                    }), 200
+
+                except Exception as retry_error:
+                    return jsonify({'error': f'Failed to fix database after retry: {str(retry_error)}'}), 500
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Database fix error: {str(e)}'}), 500
 
 
 @admin.route('/clear-all-data', methods=['POST'])
