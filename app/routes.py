@@ -332,7 +332,7 @@ def admin_dashboard():
 
                 # Try to create positions if none exist
                 try:
-                    # Create all 12 positions for the General Election
+                    # Create all 12 positions for the General Election (check for duplicates first)
                     positions_data = [
                         ('President', True), ('Vice President', True), ('Secretary', True),
                         ('Assistant Secretary', False), ('Treasurer', False), ('Assistant Treasurer', False),
@@ -341,47 +341,36 @@ def admin_dashboard():
                         ('Diaspora Coordinator', False), ('Chief Whip', False)
                     ]
 
+                    # First, check for existing positions to avoid duplicates
+                    existing_positions = Position.query.all()
+                    existing_names = {pos.name for pos in existing_positions}
+                    print(f"Found {len(existing_names)} existing positions: {', '.join(sorted(existing_names))}")
+
                     for name, voting_enabled in positions_data:
-                        # Check if position already exists (handle missing voting_enabled column)
-                        try:
-                            existing = Position.query.filter_by(name=name).first()
-                            if not existing:
-                                # Create new position - handle missing voting_enabled column
-                                try:
-                                    pos = Position(
-                                        name=name,
-                                        description=f'{name} of SLGS Old Boys Union',
-                                        voting_enabled=voting_enabled
-                                    )
-                                    db.session.add(pos)
-                                    print(f'Created position: {name} (voting: {voting_enabled})')
-                                except Exception as create_error:
-                                    print(f'Error creating position {name}: {create_error}')
-                                    # Try without voting_enabled if column doesn't exist
-                                    if 'voting_enabled' in str(create_error):
-                                        pos = Position(
-                                            name=name,
-                                            description=f'{name} of SLGS Old Boys Union'
-                                        )
-                                        db.session.add(pos)
-                                        print(f'Created position: {name} (without voting_enabled)')
-                                    else:
-                                        raise create_error
-                            else:
-                                print(f'Position already exists: {name}')
-                        except Exception as check_error:
-                            print(f'Error checking position {name}: {check_error}')
-                            # If it's a column error, try to create position without voting_enabled
-                            if 'voting_enabled' in str(check_error):
-                                try:
+                        if name not in existing_names:
+                            # Create new position - handle missing voting_enabled column
+                            try:
+                                pos = Position(
+                                    name=name,
+                                    description=f'{name} of SLGS Old Boys Union',
+                                    voting_enabled=voting_enabled
+                                )
+                                db.session.add(pos)
+                                print(f'Created position: {name} (voting: {voting_enabled})')
+                            except Exception as create_error:
+                                print(f'Error creating position {name}: {create_error}')
+                                # Try without voting_enabled if column doesn't exist
+                                if 'voting_enabled' in str(create_error):
                                     pos = Position(
                                         name=name,
                                         description=f'{name} of SLGS Old Boys Union'
                                     )
                                     db.session.add(pos)
-                                    print(f'Created position: {name} (fallback method)')
-                                except Exception as fallback_error:
-                                    print(f'Fallback creation also failed for {name}: {fallback_error}')
+                                    print(f'Created position: {name} (without voting_enabled)')
+                                else:
+                                    raise create_error
+                        else:
+                            print(f'Position already exists: {name}')
 
                     db.session.commit()
                     print(f"Created {len(positions_data)} positions successfully")
