@@ -64,6 +64,7 @@
                 <div class="card-body">
                     {% for position in positions %}
                     <h6 class="mt-4 mb-3">{{ position.name }}</h6>
+                    {% set position_total_votes = position_results[position.name].values()|sum if position_results[position.name] else 0 %}
                     <div class="table-responsive">
                         <table class="table table-striped">
                             <thead>
@@ -78,7 +79,7 @@
                                 <tr>
                                     <td>{{ candidate.name }}</td>
                                     <td>{{ position_results[position.name][candidate.name] if position_results[position.name] else 0 }}</td>
-                                    <td>{{ "%.1f"|format((position_results[position.name][candidate.name]/total_voters)*100) if total_voters > 0 and position_results[position.name] else 0 }}%</td>
+                                    <td>{{ "%.1f"|format((position_results[position.name][candidate.name]/position_total_votes)*100) if position_total_votes > 0 and position_results[position.name] else 0 }}%</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
