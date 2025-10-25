@@ -309,12 +309,16 @@ def admin_dashboard():
                     print(f"Could not fetch voters: {e}")
                     voters = []
 
-            # Get vote counts by position
+            # Get vote counts by position - count actual votes, not just candidate.votes relationship
             position_results = {}
             try:
                 for position in positions:
                     position_candidates = Candidate.query.filter_by(position_id=position.id).all()
-                    position_results[position.name] = {c.name: len(c.votes) for c in position_candidates}
+                    position_results[position.name] = {}
+                    for candidate in position_candidates:
+                        # Count actual votes for this candidate in this position
+                        vote_count = Vote.query.filter_by(position_id=position.id, candidate_id=candidate.id).count()
+                        position_results[position.name][candidate.name] = vote_count
             except Exception as e:
                 print(f"Error getting vote counts: {e}")
                 position_results = {}
@@ -468,6 +472,7 @@ def public_dashboard():
         for position in positions:
             position_results[position.name] = {}
             for candidate in position.candidates:
+                # Count votes for this specific candidate in this position
                 vote_count = Vote.query.filter_by(position_id=position.id, candidate_id=candidate.id).count()
                 position_results[position.name][candidate.name] = vote_count
 
