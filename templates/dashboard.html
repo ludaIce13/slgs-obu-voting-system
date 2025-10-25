@@ -83,12 +83,12 @@
                                             {% set candidate_votes = position_results[position.name][candidate.name] if position_results[position.name] else 0 %}
                                             {% set total_position_votes = position_results[position.name].values()|sum if position_results[position.name] else 0 %}
                                             {% set badge_percentage = ((candidate_votes/total_position_votes)*100) if total_position_votes > 0 else 0 %}
-                                             {% set safe_badge_percentage = badge_percentage|round(1) if badge_percentage >= 0 and badge_percentage <= 100 else 0 %}
+                                            {% set safe_badge_percentage = badge_percentage|round(1) if badge_percentage >= 0 and badge_percentage <= 100 else 0 %}
                                              <span class="badge bg-secondary">{{ "%.1f"|format(safe_badge_percentage) }}%</span>
                                         </td>
                                         <td>
                                             <div class="progress" style="height: 20px;">
-                                                {% set percentage = ((candidate_votes/total_position_votes)*100) if total_position_votes > 0 and total_position_votes|is_number else 0 %}
+                                                {% set percentage = ((candidate_votes/total_position_votes)*100) if total_position_votes > 0 else 0 %}
                                                 {% set safe_percentage = percentage|round(1) if percentage >= 0 and percentage <= 100 else 0 %}
                                                  {% set display_percentage = "%.1f"|format(safe_percentage) %}
                                                 <div class="progress-bar progress-bar-purple" role="progressbar"
