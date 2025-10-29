@@ -33,7 +33,11 @@ def index():
         voting_open = False
         voting_until = None
 
-    return render_template('index.html', voting_open=voting_open, voting_until=voting_until)
+    return render_template('index.html',
+                          voting_open=voting_open,
+                          voting_until=voting_until,
+                          organization_name=current_app.config['ORGANIZATION_NAME'],
+                          election_title=current_app.config['ELECTION_TITLE'])
 
 @main.route('/vote', methods=['GET', 'POST'])
 def vote():
@@ -197,7 +201,10 @@ def vote():
         votable_positions = [pos for pos in all_positions if pos.voting_enabled and pos.candidates]
 
         print(f"Vote page loaded - Found {len(all_positions)} total positions, {len(votable_positions)} votable with candidates")
-        return render_template('vote.html', positions=votable_positions)
+        return render_template('vote.html',
+                              positions=votable_positions,
+                              organization_name=current_app.config['ORGANIZATION_NAME'],
+                              election_title=current_app.config['ELECTION_TITLE'])
     except Exception as e:
         print(f"Error loading vote page: {e}")
         import traceback
@@ -207,7 +214,9 @@ def vote():
 
 @main.route('/thank-you')
 def thank_you():
-    return render_template('thank_you.html')
+    return render_template('thank_you.html',
+                          organization_name=current_app.config['ORGANIZATION_NAME'],
+                          election_title=current_app.config['ELECTION_TITLE'])
 
 @admin.route('/', methods=['GET'])
 def admin_dashboard():
@@ -408,13 +417,15 @@ def admin_dashboard():
         print("Unauthorized view - showing empty data")
 
     return render_template('admin.html',
-                            total_voters=total_voters,
-                            voted_count=voted_count,
-                            positions=positions,
-                            candidates=candidates,
-                            voters=voters,
-                            position_results=position_results,
-                            auth_ok=auth_ok)
+                          total_voters=total_voters,
+                          voted_count=voted_count,
+                          positions=positions,
+                          candidates=candidates,
+                          voters=voters,
+                          position_results=position_results,
+                          auth_ok=auth_ok,
+                          organization_name=current_app.config['ORGANIZATION_NAME'],
+                          election_title=current_app.config['ELECTION_TITLE'])
 
 @admin.route('/debug')
 def admin_debug():
@@ -480,7 +491,9 @@ def public_dashboard():
                               total_voters=total_voters,
                               voted_count=voted_count,
                               positions=positions,
-                              position_results=position_results)
+                              position_results=position_results,
+                              organization_name=current_app.config['ORGANIZATION_NAME'],
+                              election_title=current_app.config['ELECTION_TITLE'])
 
     except Exception as e:
         print(f"Error loading public dashboard: {e}")
@@ -522,7 +535,7 @@ def voting_status():
 @admin.route('/voting-control', methods=['POST'])
 def voting_control():
     """Open or close voting. POST payload: {'action': 'open'|'close', 'minutes': <int> (optional)}"""
-    if not request.headers.get('Authorization') == 'Bearer ' + os.environ.get('ADMIN_TOKEN', 'admin-token'):
+    if not request.headers.get('Authorization') == 'Bearer ' + current_app.config['ADMIN_TOKEN']:
         return jsonify({'error': 'Unauthorized'}), 401
 
     data = request.get_json() or {}
@@ -608,7 +621,7 @@ def upload_voters():
         # More flexible authorization check - accept multiple formats
         auth_header = request.headers.get('Authorization', '')
         cookie_token = request.cookies.get('admin_token', '')
-        expected_token = os.environ.get('ADMIN_TOKEN', 'admin-token')
+        expected_token = current_app.config['ADMIN_TOKEN']
 
         # Check for Bearer token, direct token, or cookie token
         authorized = False
@@ -792,7 +805,7 @@ def upload_voters():
 
 @admin.route('/generate-ids', methods=['POST'])
 def generate_voter_ids():
-    if not request.headers.get('Authorization') == 'Bearer ' + os.environ.get('ADMIN_TOKEN', 'admin-token'):
+    if not request.headers.get('Authorization') == 'Bearer ' + current_app.config['ADMIN_TOKEN']:
         return jsonify({'error': 'Unauthorized'}), 401
 
     voters = Voter.query.filter_by(voter_id=None).all()
@@ -808,7 +821,7 @@ def generate_voter_ids():
 
 @admin.route('/export-results')
 def export_results():
-    if not request.headers.get('Authorization') == 'Bearer ' + os.environ.get('ADMIN_TOKEN', 'admin-token'):
+    if not request.headers.get('Authorization') == 'Bearer ' + current_app.config['ADMIN_TOKEN']:
         return jsonify({'error': 'Unauthorized'}), 401
 
     # Get positions that have voting enabled and have candidates
@@ -863,7 +876,7 @@ def export_results():
 
 @admin.route('/clear-voters', methods=['POST'])
 def clear_voters():
-    if not request.headers.get('Authorization') == 'Bearer ' + os.environ.get('ADMIN_TOKEN', 'admin-token'):
+    if not request.headers.get('Authorization') == 'Bearer ' + current_app.config['ADMIN_TOKEN']:
         return jsonify({'error': 'Unauthorized'}), 401
 
     try:

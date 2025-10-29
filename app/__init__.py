@@ -12,6 +12,11 @@ def create_app():
     # Configuration
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
+    # Organization and Election Configuration
+    app.config['ORGANIZATION_NAME'] = os.environ.get('ORGANIZATION_NAME', 'SLGS Old Boys Union')
+    app.config['ELECTION_TITLE'] = os.environ.get('ELECTION_TITLE', 'General Election')
+    app.config['ADMIN_TOKEN'] = os.environ.get('ADMIN_TOKEN', 'admin-token')
+
     # Database configuration - prioritize PostgreSQL for production
     database_url = os.environ.get('DATABASE_URL')
 
@@ -111,15 +116,22 @@ def create_app():
             if position_count == 0:
                 print('Creating SLGS OBU positions...')
 
-                positions_data = [
-                    'President', 'Vice President', 'Secretary', 'Assistant Secretary',
-                    'Treasurer', 'Assistant Treasurer', 'Social & Organizing Secretary',
-                    'Assistant Social Secretary & Organizing Secretary', 'Publicity Secretary',
-                    'Chairman Improvement Committee', 'Diaspora Coordinator', 'Chief Whip'
-                ]
+                # Get positions from environment variable or use default SLGS OBU positions
+                positions_env = os.environ.get('ELECTION_POSITIONS', '')
+                if positions_env:
+                    # Parse comma-separated positions
+                    positions_data = [pos.strip() for pos in positions_env.split(',') if pos.strip()]
+                else:
+                    # Default SLGS OBU positions
+                    positions_data = [
+                        'President', 'Vice President', 'Secretary', 'Assistant Secretary',
+                        'Treasurer', 'Assistant Treasurer', 'Social & Organizing Secretary',
+                        'Assistant Social Secretary & Organizing Secretary', 'Publicity Secretary',
+                        'Chairman Improvement Committee', 'Diaspora Coordinator', 'Chief Whip'
+                    ]
 
                 for name in positions_data:
-                    pos = Position(name=name, description=f'{name} of SLGS Old Boys Union')
+                    pos = Position(name=name, description=f'{name} of {app.config["ORGANIZATION_NAME"]}')
                     db.session.add(pos)
 
                 db.session.commit()

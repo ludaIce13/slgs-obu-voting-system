@@ -1,31 +1,79 @@
-# SLGS OBU Voting System
+# Universal Voting System
 
-A secure, web-based voting system for the Sierra Leone Grammar School Old Boys Union (SLGS OBU) presidential and officer elections. This system supports voting for all 12 official positions with unique Voter ID authentication.
+A secure, configurable web-based voting system that can be customized for any organization's elections. Originally built for the Sierra Leone Grammar School Old Boys Union (SLGS OBU), this system can be easily adapted for any organization.
+
+## Configuration
+
+This voting system is fully configurable via environment variables. You can customize:
+
+- **Organization Name**: Set your organization's name
+- **Election Title**: Define the election type (e.g., "General Election", "Board Election", etc.)
+- **Positions**: Configure the specific positions being voted on
+- **Admin Token**: Set a custom admin password
+
+### Environment Variables
+
+Create a `.env` file in the project root with the following variables:
+
+```bash
+# Organization Configuration
+ORGANIZATION_NAME="Your Organization Name"
+ELECTION_TITLE="Your Election Title"
+
+# Admin Configuration
+ADMIN_TOKEN="your-secure-admin-token"
+
+# Optional: Custom Positions (comma-separated)
+ELECTION_POSITIONS="President,Vice President,Secretary,Treasurer,Chairperson"
+```
+
+### Default Configuration (SLGS OBU)
+
+If no environment variables are set, the system defaults to:
+
+- **Organization**: SLGS Old Boys Union
+- **Election**: General Election
+- **Positions**: President, Vice President, Secretary, Assistant Secretary, Treasurer, Assistant Treasurer, Social & Organizing Secretary, Assistant Social Secretary & Organizing Secretary, Publicity Secretary, Chairman Improvement Committee, Diaspora Coordinator, Chief Whip
+- **Admin Token**: admin-token
+
+## Quick Start for New Organizations
+
+1. **Clone the repository**
+2. **Set environment variables** in `.env` file
+3. **Deploy to Render** (or your preferred platform)
+4. **Upload your voter list** via the admin panel
+5. **Configure positions** if different from defaults
+6. **Start the election!**
 
 ## Features
 
-- **No Email Required**: Voters use unique 8-digit numeric Voter IDs
-- **Multi-Position Voting**: Vote for all 12 positions (President, VP, Secretary, etc.) with one ID
-- **Anonymous Voting**: No linkage between voter identity and vote choices
-- **Real-time Dashboard**: Live vote counts and turnout monitoring
-- **Admin Management**: Upload voter lists, generate IDs, export results
-- **Duplicate Prevention**: Each Voter ID can only be used once
-- **Secure Authentication**: Admin token-based access control
+- ✅ **Secure Authentication**: Dual-factor authentication with Voter ID and 8-digit tokens
+- ✅ **Anonymous Voting**: No linkage between voters and their choices
+- ✅ **Real-time Dashboard**: Live results display during elections
+- ✅ **Admin Panel**: Full election management and monitoring
+- ✅ **CSV Import**: Easy voter list management
+- ✅ **Mobile Friendly**: Responsive design for all devices
+- ✅ **Production Ready**: Built for high-traffic elections
+- ✅ **Fully Configurable**: Customize organization, positions, and branding
 
-## Supported Positions
+## Supported Positions (Configurable)
 
-1. **President** - 3 candidates
-2. **Vice President** - 2 candidates
-3. **Secretary** - 2 candidates
-4. **Assistant Secretary** - 2 candidates
-5. **Treasurer** - 2 candidates
-6. **Assistant Treasurer** - 2 candidates
-7. **Social & Organizing Secretary** - 2 candidates
-8. **Assistant Social Secretary & Organizing Secretary** - 2 candidates
-9. **Publicity Secretary** - 2 candidates
-10. **Chairman Improvement Committee** - 2 candidates
-11. **Diaspora Coordinator** - 2 candidates
-12. **Chief Whip** - 2 candidates
+The system supports any number of positions. Default configuration includes:
+
+1. **President** - Leadership position
+2. **Vice President** - Deputy leadership
+3. **Secretary** - Administrative role
+4. **Assistant Secretary** - Administrative support
+5. **Treasurer** - Financial management
+6. **Assistant Treasurer** - Financial support
+7. **Social & Organizing Secretary** - Event coordination
+8. **Assistant Social Secretary & Organizing Secretary** - Event support
+9. **Publicity Secretary** - Communications
+10. **Chairman Improvement Committee** - Quality improvement
+11. **Diaspora Coordinator** - International relations
+12. **Chief Whip** - Party discipline
+
+**Note**: Positions can be customized via the `ELECTION_POSITIONS` environment variable.
 
 ## Quick Start
 
@@ -46,37 +94,39 @@ python run.py
 
 - **Voting Page**: http://localhost:5000/vote
 - **Admin Dashboard**: http://localhost:5000/admin
-- **Admin Token**: `admin-token` (default)
+- **Public Dashboard**: http://localhost:5000/dashboard
+- **Admin Token**: `admin-token` (default - change via environment variable)
 
 ### 3. Admin Setup
 
 1. Go to http://localhost:5000/admin
-2. Enter admin token: `admin-token`
-3. Upload voter CSV file with format: `MemberID,FullName,GraduationYear`
+2. Enter admin token (set via `ADMIN_TOKEN` environment variable)
+3. Upload voter CSV file with format: `MemberID,FullName,PhoneNumber,VotingToken` (optional)
 4. Generate Voter IDs for all uploaded voters
-5. Distribute Voter IDs to voters (print, WhatsApp, etc.)
+5. Distribute Voter IDs and tokens to voters
 
 ### 4. Voting Process
 
 1. Voters go to http://localhost:5000/vote
-2. Enter their 8-digit Voter ID
+2. Enter their Voter ID and 8-digit Voting Token
 3. Select candidates for each position
-4. Submit votes (ID becomes invalid after use)
+4. Submit votes (credentials become invalid after use)
 
 ## CSV Voter File Format
 
 Create a CSV file with the following columns:
 
 ```csv
-MemberID,FullName,GraduationYear
-SLGS001,John Doe,1995
-SLGS002,Jane Smith,1996
-SLGS003,Bob Johnson,1997
+MemberID,FullName,PhoneNumber,VotingToken
+ORG001,John Doe,+1234567890,12345678
+ORG002,Jane Smith,+1234567891,
+ORG003,Bob Johnson,+1234567892,87654321
 ```
 
-- **MemberID**: Unique identifier (e.g., SLGS001, SLGS002)
+- **MemberID**: Unique identifier (e.g., ORG001, ORG002)
 - **FullName**: Voter's full name
-- **GraduationYear**: Year of graduation (numeric)
+- **PhoneNumber**: Contact phone number
+- **VotingToken**: Optional 8-digit token (leave blank to auto-generate)
 
 ## Admin Functions
 
@@ -112,12 +162,28 @@ SLGS003,Bob Johnson,1997
 
 ### Environment Variables
 
-Create a `.env` file:
+Create a `.env` file in the project root:
 
 ```env
-ADMIN_TOKEN=your-secure-admin-token
+# Organization Configuration
+ORGANIZATION_NAME="Your Organization Name"
+ELECTION_TITLE="Your Election Title"
+
+# Admin Configuration
+ADMIN_TOKEN="your-secure-admin-token"
+
+# Optional: Custom Positions (comma-separated)
+ELECTION_POSITIONS="President,Vice President,Secretary,Treasurer,Chairperson"
+
+# Development
 FLASK_ENV=development
 ```
+
+### Organization Configuration
+
+- **ORGANIZATION_NAME**: Your organization's full name (default: "SLGS Old Boys Union")
+- **ELECTION_TITLE**: Type of election (default: "General Election")
+- **ELECTION_POSITIONS**: Comma-separated list of positions (optional)
 
 ### Admin Token
 
@@ -135,12 +201,34 @@ python run.py
 
 ### Production Deployment
 
-1. Set `ADMIN_TOKEN` environment variable
-2. Use a WSGI server like Gunicorn
-3. Configure HTTPS
-4. Set up reverse proxy (nginx)
+The system is optimized for cloud platforms like Render, Railway, or Heroku.
 
-Example with Gunicorn:
+#### Render Deployment
+
+1. Connect your GitHub repository to Render
+2. Set environment variables in Render dashboard:
+   - `ADMIN_TOKEN`: Your secure admin password
+   - `ORGANIZATION_NAME`: Your organization name
+   - `ELECTION_TITLE`: Your election title
+   - `ELECTION_POSITIONS`: Comma-separated positions (optional)
+3. Deploy automatically
+
+#### Environment Variables for Production
+
+```bash
+# Required
+ADMIN_TOKEN=your-secure-admin-token-here
+
+# Organization (customize these)
+ORGANIZATION_NAME=Your Organization Name
+ELECTION_TITLE=Your Election Title
+
+# Optional
+ELECTION_POSITIONS=Position1,Position2,Position3
+DATABASE_URL=postgresql://... (if using PostgreSQL)
+```
+
+#### Manual Deployment with Gunicorn
 
 ```bash
 pip install gunicorn
@@ -234,7 +322,40 @@ app.run(debug=True, host='0.0.0.0', port=5000)
 
 For technical support or questions about the SLGS OBU Voting System, please contact the development team.
 
+## Example Configurations
+
+### For a University Student Council Election
+
+```bash
+ORGANIZATION_NAME="University of Example Student Council"
+ELECTION_TITLE="Annual Elections"
+ELECTION_POSITIONS="President,Vice President,Secretary,Treasurer,Social Chair,Academic Chair,Sports Chair"
+ADMIN_TOKEN="student-council-2024"
+```
+
+### For a Professional Association Board Election
+
+```bash
+ORGANIZATION_NAME="Professional Engineers Association"
+ELECTION_TITLE="Board of Directors Election"
+ELECTION_POSITIONS="Chair,Vice Chair,Secretary,Treasurer,Director,Education Chair,Membership Chair"
+ADMIN_TOKEN="pea-board-2024"
+```
+
+### For a Community Organization Election
+
+```bash
+ORGANIZATION_NAME="Downtown Community Center"
+ELECTION_TITLE="Board Election"
+ELECTION_POSITIONS="President,Vice President,Secretary,Treasurer,Program Director,Volunteer Coordinator"
+ADMIN_TOKEN="dcc-board-2024"
+```
+
+## Support
+
+For technical support or customization requests, please contact the development team.
+
 ---
 
-**Sierra Leone Grammar School Old Boys Union (SLGS OBU)**  
-*Secure • Anonymous • Reliable Voting System*
+**Universal Voting System**
+*Secure • Anonymous • Configurable • Production-Ready*
