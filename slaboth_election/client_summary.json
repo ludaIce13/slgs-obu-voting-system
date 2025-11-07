@@ -1,0 +1,20 @@
+{
+  "organization": "Sierra Leone Association of Business Owners in Tourism and Hospitality (SLABOTH)",
+  "election_title": "Executive Committee Elections",
+  "positions_count": 6,
+  "positions": [
+    "Chairperson",
+    "Secretary",
+    "Treasurer",
+    "Public Relations & Communications Officer",
+    "Advocacy & Policy Officer",
+    "Admin Officer"
+  ],
+  "admin_token": "slaboth-2024",
+  "created_files": [
+    ".env",
+    "DEPLOYMENT_GUIDE.md",
+    "sample_voters.csv",
+    "README.md"
+  ]
+}
